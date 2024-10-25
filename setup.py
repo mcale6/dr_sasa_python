@@ -101,8 +101,8 @@ setup(
     version="0.1.0",
     author="mcaele6",
     description="Python bindings for dr_sasa_n library",
-    packages=find_packages(),
-    ext_modules=[CMakeExtension("dr_sasa_py")],
+    packages=['dr_sasa_py'],
+    ext_modules=[CMakeExtension("dr_sasa_py.dr_sasa_py")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     python_requires='>=3.7',
@@ -126,6 +126,5 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: MIT License',
     ],
 )
