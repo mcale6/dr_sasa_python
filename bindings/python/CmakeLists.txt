@@ -36,14 +36,20 @@ if(USE_CUDA)
 endif()
 
 if(APPLE)
-    # Add runtime path for OpenMP on macOS
-    get_target_property(tmp dr_sasa_py LINK_FLAGS)
-    if(tmp STREQUAL "tmp-NOTFOUND")
-        set(tmp "")
+    if(DEFINED LIBOMP_PREFIX)
+        set_target_properties(dr_sasa_py PROPERTIES
+            INSTALL_RPATH "${LIBOMP_PREFIX}/lib"
+            BUILD_WITH_INSTALL_RPATH TRUE
+        )
+        
+        target_link_libraries(dr_sasa_py PRIVATE
+            ${LIBOMP_PREFIX}/lib/libomp.dylib
+        )
+        
+        set_target_properties(dr_sasa_py PROPERTIES
+            LINK_FLAGS "-Wl,-rpath,${LIBOMP_PREFIX}/lib -undefined dynamic_lookup"
+        )
     endif()
-    set_target_properties(dr_sasa_py PROPERTIES
-        LINK_FLAGS "${tmp} -Wl,-rpath,${LIBOMP_PREFIX}/lib"
-    )
 endif()
 
 # Force symbol visibility
@@ -73,3 +79,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/dr_sasa_n/src/kernels)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/dr_sasa_n/src/kernels
             DESTINATION ${Python_SITEARCH}/dr_sasa_data)
 endif()
+
+message(STATUS "Current source dir: ${CMAKE_CURRENT_SOURCE_DIR}")
+message(STATUS "Project source dir: ${CMAKE_SOURCE_DIR}")
+message(STATUS "Python_SITEARCH: ${Python_SITEARCH}")

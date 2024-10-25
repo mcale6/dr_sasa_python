@@ -17,14 +17,43 @@ class CMakeBuild(build_ext):
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
             
-        # Set architecture flags for macOS
+        # Get OpenMP settings for macOS
         if platform.system() == "Darwin":
-            # Check if we're on Apple Silicon
+            try:
+                libomp_path = subprocess.check_output(
+                    ['brew', '--prefix', 'libomp'], 
+                    universal_newlines=True
+                ).strip()
+                print(f"Found libomp at: {libomp_path}")
+                
+                # Set environment variables for OpenMP
+                os.environ['CC'] = 'clang'
+                os.environ['CXX'] = 'clang++'
+                os.environ['CPPFLAGS'] = f"-Xpreprocessor -fopenmp -I{libomp_path}/include"
+                os.environ['CFLAGS'] = f"-Xpreprocessor -fopenmp -I{libomp_path}/include"
+                os.environ['CXXFLAGS'] = f"-Xpreprocessor -fopenmp -I{libomp_path}/include"
+                os.environ['LDFLAGS'] = f"-Wl,-rpath,{libomp_path}/lib {libomp_path}/lib/libomp.dylib"
+                
+                omp_flags = [
+                    f'-DOpenMP_C_FLAGS=-Xpreprocessor -fopenmp -I{libomp_path}/include',
+                    f'-DOpenMP_CXX_FLAGS=-Xpreprocessor -fopenmp -I{libomp_path}/include',
+                    f'-DOpenMP_C_LIB_NAMES=omp',
+                    f'-DOpenMP_CXX_LIB_NAMES=omp',
+                    f'-DOpenMP_omp_LIBRARY={libomp_path}/lib/libomp.dylib',
+                    f'-DOpenMP_CXX_LIB_NAMES=omp',
+                    f'-DOpenMP_CXX_LIBRARIES={libomp_path}/lib/libomp.dylib'
+                ]
+            except subprocess.CalledProcessError:
+                print("Warning: libomp not found, please install with: brew install libomp")
+                omp_flags = []
+                
+            # Set architecture
             if platform.machine() == 'arm64':
                 arch_flag = "-DCMAKE_OSX_ARCHITECTURES=arm64"
             else:
                 arch_flag = "-DCMAKE_OSX_ARCHITECTURES=x86_64"
         else:
+            omp_flags = []
             arch_flag = ""
             
         # Configure cmake arguments
@@ -36,11 +65,14 @@ class CMakeBuild(build_ext):
         
         if arch_flag:
             cmake_args.append(arch_flag)
+        cmake_args.extend(omp_flags)
         
         print(f"Project root: {project_root}")
         print(f"Build temp: {self.build_temp}")
         print(f"CMake args: {cmake_args}")
-        print(f"Machine architecture: {platform.machine()}")
+        print(f"Environment:")
+        for key in ['CC', 'CXX', 'CPPFLAGS', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS']:
+            print(f"  {key}: {os.environ.get(key, 'not set')}")
         
         try:
             # Run cmake

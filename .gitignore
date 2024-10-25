@@ -3,3 +3,6 @@ src_concat.txt
 .pytest_cache/
 .vscode/settings.json
 .DS_Store
+*.src_concat
+*egg*
+*.so
