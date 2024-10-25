@@ -1,8 +1,55 @@
+# Build directories
 build/
-src_concat.txt
-.pytest_cache/
-.vscode/settings.json
-.DS_Store
-*.src_concat
-*egg*
+dist/
+__pycache__/
+*.pyc
+
+# Python package files
+*.egg
+*.egg-info
+*.eggs
+*.pyc
+*.pyo
+*.pyd
+.eggs/
+.Python
+env/
+venv/
+
+# Compiled files
 *.so
+*.o
+*.a
+*.dylib
+*.dll
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+settings.json
+
+# Generated files
+src_concat.txt
+*.src_concat
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent

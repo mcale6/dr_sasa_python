@@ -1,8 +1,0 @@
-Metadata-Version: 2.1
-Name: dr_sasa
-Version: 0.1
-Summary: Python bindings for dr_sasa
-Author: Alessio DAddio
-License-File: LICENSE
-Requires-Dist: numpy
-Requires-Dist: pytest
