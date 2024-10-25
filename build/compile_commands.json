@@ -1,0 +1,86 @@
+[
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/stdafx.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/stdafx.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/stdafx.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/stdafx.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/atom_struct.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/atom_struct.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/atom_struct.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/atom_struct.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/residue_struct.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/residue_struct.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/residue_struct.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/residue_struct.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/PDBparser2.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/PDBparser2.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/PDBparser2.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/PDBparser2.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SetRadius.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SetRadius.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SetRadius.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SetRadius.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SurfaceSolverCL.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SurfaceSolverCL.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SurfaceSolverCL.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SurfaceSolverCL.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/NB.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/NB.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/NB.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/NB.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SolverDataProcessing.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SolverDataProcessing.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SolverDataProcessing.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SolverDataProcessing.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/NonEffective.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/NonEffective.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/NonEffective.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/NonEffective.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/histogram.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/histogram.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/histogram.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/histogram.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SearchFunctions.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SearchFunctions.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SearchFunctions.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SearchFunctions.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/dr_sasa.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/dr_sasa.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/dr_sasa.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/dr_sasa.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk/System/Library/Frameworks  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SurfaceSolverOnTheFly.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SurfaceSolverOnTheFly.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src/SurfaceSolverOnTheFly.cpp",
+  "output": "CMakeFiles/dr_sasa_core.dir/dr_sasa_n/src/SurfaceSolverOnTheFly.cpp.o"
+},
+{
+  "directory": "/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python",
+  "command": "/usr/bin/clang++ -DUSE_OPENCL -Ddr_sasa_py_EXPORTS -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/src -I/Users/alessio/Documents/Repos/dr_sasa_python/dr_sasa_n/include -isystem /opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/include/python3.12 -isystem /opt/homebrew/include  -Wall -Wextra -Wno-c++17-extensions -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -g -g -std=c++17 -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -fPIC -fvisibility=hidden -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -o CMakeFiles/dr_sasa_py.dir/bindings.cpp.o -c /Users/alessio/Documents/Repos/dr_sasa_python/bindings/python/bindings.cpp",
+  "file": "/Users/alessio/Documents/Repos/dr_sasa_python/bindings/python/bindings.cpp",
+  "output": "bindings/python/CMakeFiles/dr_sasa_py.dir/bindings.cpp.o"
+}
+]

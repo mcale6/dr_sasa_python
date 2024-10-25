@@ -1,0 +1,14 @@
+/Users/alessio/Documents/Repos/dr_sasa_python/build/CMakeFiles/dr_sasa_core.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/CMakeFiles/edit_cache.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/CMakeFiles/rebuild_cache.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/CMakeFiles/list_install_components.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/CMakeFiles/install.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/CMakeFiles/install/local.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/CMakeFiles/install/strip.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python/CMakeFiles/dr_sasa_py.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python/CMakeFiles/edit_cache.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python/CMakeFiles/rebuild_cache.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python/CMakeFiles/list_install_components.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python/CMakeFiles/install.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python/CMakeFiles/install/local.dir
+/Users/alessio/Documents/Repos/dr_sasa_python/build/bindings/python/CMakeFiles/install/strip.dir
