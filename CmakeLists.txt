@@ -105,3 +105,8 @@ target_link_libraries(dr_sasa_core
 
 # Add Python bindings
 add_subdirectory(bindings/python)
+
+set_target_properties(dr_sasa_py PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)

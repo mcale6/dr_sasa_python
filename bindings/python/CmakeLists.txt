@@ -1,4 +1,5 @@
-# Location: ./bindings/python/CMakeLists.txt
+cmake_minimum_required(VERSION 3.10)
+project(dr_sasa_python_bindings)
 
 # Python Configuration
 find_package(Python COMPONENTS Interpreter Development REQUIRED)

@@ -1,6 +1,15 @@
 import pytest
-import dr_sasa_py
 import numpy as np
+import os, sys
+from pathlib import Path
+build_path = Path("build")
+sys.path.append(str(build_path.absolute()))
+print(f"Added build path: {build_path.absolute()}")
+import dr_sasa_py
+#python setup.py build_ext --inplace
+
+# Define the path to test data
+TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 @pytest.fixture
 def dr_sasa():
@@ -14,7 +23,8 @@ def test_initialization(dr_sasa):
 
 def test_basic_sasa_calculation(dr_sasa):
     """Test basic SASA calculation"""
-    results = dr_sasa.calculate_sasa("tests/data/1bl0.pdb")
+    pdb_path = os.path.join(TEST_DATA_DIR, "3i40.pdb")
+    results = dr_sasa.calculate_sasa(pdb_path)
     
     # Basic checks
     assert 'total_sasa' in results
@@ -28,8 +38,9 @@ def test_basic_sasa_calculation(dr_sasa):
 
 def test_delta_sasa_calculation(dr_sasa):
     """Test delta SASA calculation"""
+    pdb_path = os.path.join(TEST_DATA_DIR, "3i40.pdb")
     results = dr_sasa.calculate_delta_sasa(
-        "tests/data/3i40.pdb",
+        pdb_path,
         chains=[["A"], ["B"]]
     )
     
@@ -49,5 +60,6 @@ def test_parameter_setting(dr_sasa):
 def test_different_probe_radii(dr_sasa, probe_radius):
     """Test SASA calculation with different probe radii"""
     dr_sasa.set_probe_radius(probe_radius)
-    results = dr_sasa.calculate_sasa("tests/data/6gwp.pdb")
+    pdb_path = os.path.join(TEST_DATA_DIR, "6gwp.pdb")
+    results = dr_sasa.calculate_sasa(pdb_path)
     assert results['total_sasa'] > 0
