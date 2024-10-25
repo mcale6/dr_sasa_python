@@ -1,5 +1,5 @@
 build/
 src_concat.txt
 .pytest_cache/
-#
-.vscode/
+.vscode/settings.json
+.DS_Store

@@ -25,6 +25,7 @@
 #include "NB.h"
 #include "gpu_config.hpp"
 
+
 namespace py = pybind11;
 
 using std::string;
@@ -799,6 +800,39 @@ private:
         }
     }
 };
+
+// Constructor implementation
+DrSASA::DrSASA(const string& vdw_file, float probe_radius, ComputeBackend backend)
+    : probe_radius_(probe_radius),
+      vdw_radii_(),
+      compute_mode_(convert_backend(backend)),
+      initialized_(false)
+{
+    try {
+        #ifdef __APPLE__
+            compute_mode_ = GPUConfig::ComputeMode::CPU;
+            cl_mode_ = 0;
+        #else
+            switch(backend) {
+                case ComputeBackend::CUDA:
+                    cl_mode_ = 1;
+                    break;
+                case ComputeBackend::OPENCL:
+                    cl_mode_ = 2;
+                    break;
+                default:
+                    cl_mode_ = 0;
+                    break;
+            }
+        #endif
+        initialized_ = true;
+    } catch (const std::exception& e) {
+        throw std::runtime_error("Failed to initialize DrSASA: " + std::string(e.what()));
+    }
+}
+
+// Destructor implementation
+DrSASA::~DrSASA() = default;
 
 PYBIND11_MODULE(dr_sasa_py, m) {
     m.doc() = R"pbdoc(

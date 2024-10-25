@@ -9,12 +9,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Add visibility settings for macOS
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
 # Build type configuration
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
 endif()
-
 # Set the possible values of build type for cmake-gui
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS 
     "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
@@ -31,24 +35,34 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # OpenMP Configuration
 if(APPLE)
-    execute_process(
-        COMMAND brew --prefix libomp
-        OUTPUT_VARIABLE LIBOMP_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    
-    if(LIBOMP_PREFIX)
-        set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
-        set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
-        set(OpenMP_C_LIB_NAMES "omp")
-        set(OpenMP_CXX_LIB_NAMES "omp")
-        set(OpenMP_omp_LIBRARY "${LIBOMP_PREFIX}/lib/libomp.dylib")
-        set(OpenMP_FOUND TRUE)
-    else()
-        message(FATAL_ERROR "OpenMP not found. Install it with 'brew install libomp'.")
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+        # For Apple Clang
+        execute_process(
+            COMMAND brew --prefix libomp
+            OUTPUT_VARIABLE LIBOMP_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        
+        if(LIBOMP_PREFIX)
+            set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
+            set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
+            set(OpenMP_C_LIB_NAMES "omp")
+            set(OpenMP_CXX_LIB_NAMES "omp")
+            set(OpenMP_omp_LIBRARY "${LIBOMP_PREFIX}/lib/libomp.dylib")
+            
+            # Link directories for runtime
+            link_directories("${LIBOMP_PREFIX}/lib")
+            
+            # Make sure Python module can find OpenMP at runtime
+            set(CMAKE_INSTALL_RPATH "${LIBOMP_PREFIX}/lib")
+            set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+        else()
+            message(FATAL_ERROR "OpenMP not found. Install it with 'brew install libomp'")
+        endif()
     endif()
 endif()
 

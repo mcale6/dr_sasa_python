@@ -1,12 +1,21 @@
 cmake_minimum_required(VERSION 3.10)
 project(dr_sasa_python_bindings)
 
+# Set visibility flags
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
+
+# macOS specific settings
+if(APPLE)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
+endif()
+
 # Python Configuration
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
 
 # Create Python module
-pybind11_add_module(dr_sasa_py 
+pybind11_add_module(dr_sasa_py MODULE
     bindings.cpp
 )
 
@@ -19,11 +28,29 @@ target_include_directories(dr_sasa_py PRIVATE
 # Link with core library and dependencies
 target_link_libraries(dr_sasa_py PRIVATE 
     dr_sasa_core
+    OpenMP::OpenMP_CXX  # Add explicit OpenMP linking
 )
 
 if(USE_CUDA)
     target_link_libraries(dr_sasa_py PRIVATE ${CUDA_LIBRARIES})
 endif()
+
+if(APPLE)
+    # Add runtime path for OpenMP on macOS
+    get_target_property(tmp dr_sasa_py LINK_FLAGS)
+    if(tmp STREQUAL "tmp-NOTFOUND")
+        set(tmp "")
+    endif()
+    set_target_properties(dr_sasa_py PROPERTIES
+        LINK_FLAGS "${tmp} -Wl,-rpath,${LIBOMP_PREFIX}/lib"
+    )
+endif()
+
+# Force symbol visibility
+set_target_properties(dr_sasa_py PROPERTIES 
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN YES
+)
 
 # Installation configuration
 if(SKBUILD)

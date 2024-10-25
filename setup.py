@@ -3,6 +3,7 @@ from setuptools.command.build_ext import build_ext
 import sys
 import os
 import subprocess
+import platform
 
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=''):
@@ -14,18 +15,37 @@ class CMakeBuild(build_ext):
         try:
             subprocess.check_output(['cmake', '--version'])
         except OSError:
-            raise RuntimeError(
-                "CMake must be installed to build the following extensions: " +
-                ", ".join(e.name for e in self.extensions))
+            raise RuntimeError("CMake must be installed")
 
         for ext in self.extensions:
             self.build_extension(ext)
 
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        
-        cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
-                     '-DPYTHON_EXECUTABLE=' + sys.executable]
+
+        # Add OpenMP flags for macOS
+        if platform.system() == "Darwin":
+            try:
+                libomp_path = subprocess.check_output(['brew', '--prefix', 'libomp'], 
+                                                    universal_newlines=True).strip()
+                print(f"Found libomp at: {libomp_path}")
+                openmp_flags = [
+                    f'-DOpenMP_C_FLAGS=-Xpreprocessor -fopenmp -I{libomp_path}/include',
+                    f'-DOpenMP_CXX_FLAGS=-Xpreprocessor -fopenmp -I{libomp_path}/include',
+                    f'-DOpenMP_C_LIB_NAMES=omp',
+                    f'-DOpenMP_CXX_LIB_NAMES=omp',
+                    f'-DOpenMP_omp_LIBRARY={libomp_path}/lib/libomp.dylib',
+                ]
+            except subprocess.CalledProcessError:
+                print("Warning: libomp not found. Please install with 'brew install libomp'")
+                openmp_flags = []
+        else:
+            openmp_flags = []
+
+        cmake_args = [
+            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
+            '-DPYTHON_EXECUTABLE=' + sys.executable,
+        ] + openmp_flags
 
         cfg = 'Debug' if self.debug else 'Release'
         build_args = ['--config', cfg]
@@ -34,12 +54,19 @@ class CMakeBuild(build_ext):
         build_args += ['--', '-j2']
 
         env = os.environ.copy()
-        env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(
-            env.get('CXXFLAGS', ''),
-            self.distribution.get_version())
-        
+        if platform.system() == "Darwin":
+            try:
+                env['LDFLAGS'] = f"-L{libomp_path}/lib"
+                env['CPPFLAGS'] = f"-I{libomp_path}/include"
+            except:
+                pass
+
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
+
+        print("CMake args:", cmake_args)
+        print("Build args:", build_args)
+        print("Environment:", env)
             
         subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, 
                             cwd=self.build_temp, env=env)
