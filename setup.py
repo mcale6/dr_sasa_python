@@ -53,8 +53,7 @@ class CMakeBuild(build_ext):
 setup(
     name="dr_sasa",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Alessio D'Addio",
     description="Python bindings for dr_sasa library",
     long_description="",
     packages=find_packages(),
