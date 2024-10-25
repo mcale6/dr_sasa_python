@@ -15,7 +15,7 @@ Still work in progress.
 
 1. Clone the repository:
 ```bash
-git clone git@github.com:mcale6/dr_sasa_python.git
+git clone https://github.com/mcale6/dr_sasa_python.git
 cd dr_sasa_python
 ```
 

@@ -1,2 +1,5 @@
 build/
 src_concat.txt
+.pytest_cache/
+#
+.vscode/

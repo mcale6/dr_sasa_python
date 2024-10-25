@@ -862,9 +862,10 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         
         // Advanced analysis methods
         .def("analyze_chain_interactions", &DrSASA::analyze_chain_interactions,
-             py::arg("pdb_file"),
-             py::arg("chains"),
-             "Analyze interactions between specified chains")
+            py::arg("pdb_file"),
+            py::arg("chains"),
+            py::arg("cutoff") = 4.5,
+            "Analyze interactions between specified chains")
         
         .def("analyze_residue_interactions", &DrSASA::analyze_residue_interactions,
              py::arg("pdb_file"),

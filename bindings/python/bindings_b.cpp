@@ -93,15 +93,6 @@ public:
                 throw std::runtime_error("No surface points generated");
             }
             SimpleSolverCL(*atoms, vdw_radii->Points, cl_mode);
-            
-            if (!output_prefix.empty()) {
-                write_output(output_prefix, STANDARD);
-            }
-            
-            return create_results_dict();
-        } catch (const std::exception& e) {
-            throw std::runtime_error("SASA calculation failed: " + std::string(e.what()));
-        }
 
     // Simple SASA (Mode 0)
     py::dict calculate_delta_sasa(const string& pdb_file,

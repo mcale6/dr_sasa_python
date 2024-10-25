@@ -1,11 +1,11 @@
 import pytest
-import numpy as np
 import os, sys
 from pathlib import Path
 build_path = Path("build")
 sys.path.append(str(build_path.absolute()))
 print(f"Added build path: {build_path.absolute()}")
 import dr_sasa_py
+import numpy as np
 #python setup.py build_ext --inplace
 
 # Define the path to test data
