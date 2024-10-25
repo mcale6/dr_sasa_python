@@ -1,27 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 project(dr_sasa)
 
-# Enable compile commands generation
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;MinSizeRel")
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
-
-# Set C++ standard
+# Basic configuration
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# Add visibility settings for macOS
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
-# Build type configuration
+# Build type
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
+    set(CMAKE_BUILD_TYPE "Debug")
 endif()
-# Set the possible values of build type for cmake-gui
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS 
-    "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
 
 # Compiler flags
 if(APPLE)
@@ -30,52 +20,32 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 endif()
 
-# Build type specific flags
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O2 -g")
-set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -Os")
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 # OpenMP Configuration
 if(APPLE)
-    if(CMAKE_C_COMPILER_ID MATCHES "Clang")
-        # For Apple Clang
-        execute_process(
-            COMMAND brew --prefix libomp
-            OUTPUT_VARIABLE LIBOMP_PREFIX
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        
-        if(LIBOMP_PREFIX)
-            set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
-            set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
-            set(OpenMP_C_LIB_NAMES "omp")
-            set(OpenMP_CXX_LIB_NAMES "omp")
-            set(OpenMP_omp_LIBRARY "${LIBOMP_PREFIX}/lib/libomp.dylib")
-            
-            # Link directories for runtime
-            link_directories("${LIBOMP_PREFIX}/lib")
-            
-            # Make sure Python module can find OpenMP at runtime
-            set(CMAKE_INSTALL_RPATH "${LIBOMP_PREFIX}/lib")
-            set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-        else()
-            message(FATAL_ERROR "OpenMP not found. Install it with 'brew install libomp'")
-        endif()
+    execute_process(
+        COMMAND brew --prefix libomp
+        OUTPUT_VARIABLE LIBOMP_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(LIBOMP_PREFIX)
+        set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
+        set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
+        set(OpenMP_C_LIB_NAMES "omp")
+        set(OpenMP_CXX_LIB_NAMES "omp")
+        set(OpenMP_omp_LIBRARY "${LIBOMP_PREFIX}/lib/libomp.dylib")
+        link_directories("${LIBOMP_PREFIX}/lib")
+        set(CMAKE_INSTALL_RPATH "${LIBOMP_PREFIX}/lib")
+        set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    else()
+        message(FATAL_ERROR "OpenMP not found. Install it with 'brew install libomp'")
     endif()
 endif()
 
+# Find required packages
 find_package(OpenMP REQUIRED)
-if(OpenMP_CXX_FOUND)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-endif()
-
-# OpenCL Configuration
 find_package(OpenCL REQUIRED)
-if(OpenCL_FOUND)
-    add_definitions(-DUSE_OPENCL)
-endif()
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 REQUIRED)
 
 # Core source files
 set(CORE_SOURCES
@@ -94,22 +64,13 @@ set(CORE_SOURCES
     dr_sasa_n/src/SurfaceSolverOnTheFly.cpp
 )
 
-# Optional CUDA support
-option(USE_CUDA "Enable CUDA support" OFF)
-if(USE_CUDA)
-    enable_language(CUDA)
-    find_package(CUDA REQUIRED)
-    add_definitions(-DUSE_CUDA)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_60")
-endif()
-
-# Create core library
+# Core library
 add_library(dr_sasa_core STATIC ${CORE_SOURCES})
 target_include_directories(dr_sasa_core
     PUBLIC 
-        ${CMAKE_CURRENT_SOURCE_DIR}/dr_sasa_n/include
+        ${CMAKE_SOURCE_DIR}/dr_sasa_n/include
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/dr_sasa_n/src
+        ${CMAKE_SOURCE_DIR}/dr_sasa_n/src
 )
 target_link_libraries(dr_sasa_core
     PUBLIC
@@ -117,10 +78,29 @@ target_link_libraries(dr_sasa_core
         ${OpenCL_LIBRARIES}
 )
 
-# Add Python bindings
-add_subdirectory(bindings/python)
-
-set_target_properties(dr_sasa_py PROPERTIES
-    CXX_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN ON
+# Python module
+pybind11_add_module(dr_sasa_py MODULE
+    bindings/python/bindings.cpp
 )
+
+target_include_directories(dr_sasa_py PRIVATE 
+    ${CMAKE_SOURCE_DIR}/dr_sasa_n/src
+    ${CMAKE_SOURCE_DIR}/dr_sasa_n/include
+)
+
+target_link_libraries(dr_sasa_py PRIVATE 
+    dr_sasa_core
+)
+
+# Set output directory for the Python module
+set_target_properties(dr_sasa_py PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+)
+
+# Print debug info
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Python: ${Python_EXECUTABLE}")
+message(STATUS "OpenMP: ${OpenMP_CXX_FOUND}")
+message(STATUS "OpenCL: ${OpenCL_FOUND}")
+message(STATUS "Build directory: ${CMAKE_BINARY_DIR}")
+message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
