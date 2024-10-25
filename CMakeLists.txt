@@ -16,40 +16,23 @@ endif()
 # Compiler flags
 if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-c++17-extensions")
+    # Define preprocessor macros to disable OpenMP and OpenCL on Apple
+    add_definitions(-DNO_OPENMP -DNO_OPENCL)
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 endif()
 
-# OpenMP Configuration
-if(APPLE)
-    execute_process(
-        COMMAND brew --prefix libomp
-        OUTPUT_VARIABLE LIBOMP_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    if(LIBOMP_PREFIX)
-        set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
-        set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I${LIBOMP_PREFIX}/include")
-        set(OpenMP_C_LIB_NAMES "omp")
-        set(OpenMP_CXX_LIB_NAMES "omp")
-        set(OpenMP_omp_LIBRARY "${LIBOMP_PREFIX}/lib/libomp.dylib")
-        link_directories("${LIBOMP_PREFIX}/lib")
-        set(CMAKE_INSTALL_RPATH "${LIBOMP_PREFIX}/lib")
-        set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-    else()
-        message(FATAL_ERROR "OpenMP not found. Install it with 'brew install libomp'")
-    endif()
+# Find required packages
+if(NOT APPLE)
+    find_package(OpenMP REQUIRED)
+    find_package(OpenCL REQUIRED)
 endif()
 
-# Find required packages
-find_package(OpenMP REQUIRED)
-find_package(OpenCL REQUIRED)
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 REQUIRED)
 
 # Core source files
 set(CORE_SOURCES
-    dr_sasa_n/src/stdafx.cpp
     dr_sasa_n/src/atom_struct.cpp
     dr_sasa_n/src/residue_struct.cpp
     dr_sasa_n/src/PDBparser2.cpp
@@ -60,8 +43,9 @@ set(CORE_SOURCES
     dr_sasa_n/src/NonEffective.cpp
     dr_sasa_n/src/histogram.cpp
     dr_sasa_n/src/SearchFunctions.cpp
-    dr_sasa_n/src/dr_sasa.cpp
     dr_sasa_n/src/SurfaceSolverOnTheFly.cpp
+    dr_sasa_n/src/dr_sasa.cpp
+    dr_sasa_n/src/stdafx.cpp
 )
 
 # Core library
@@ -72,11 +56,15 @@ target_include_directories(dr_sasa_core
     PRIVATE
         ${CMAKE_SOURCE_DIR}/dr_sasa_n/src
 )
-target_link_libraries(dr_sasa_core
-    PUBLIC
-        OpenMP::OpenMP_CXX
-        ${OpenCL_LIBRARIES}
-)
+
+# Conditional linking of OpenMP and OpenCL
+if(NOT APPLE)
+    target_link_libraries(dr_sasa_core
+        PUBLIC
+            OpenMP::OpenMP_CXX
+            ${OpenCL_LIBRARIES}
+    )
+endif()
 
 # Python module
 pybind11_add_module(dr_sasa_py MODULE
@@ -100,7 +88,12 @@ set_target_properties(dr_sasa_py PROPERTIES
 # Print debug info
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Python: ${Python_EXECUTABLE}")
-message(STATUS "OpenMP: ${OpenMP_CXX_FOUND}")
-message(STATUS "OpenCL: ${OpenCL_FOUND}")
+if(NOT APPLE)
+    message(STATUS "OpenMP: ${OpenMP_CXX_FOUND}")
+    message(STATUS "OpenCL: ${OpenCL_FOUND}")
+else()
+    message(STATUS "OpenMP: disabled (Apple)")
+    message(STATUS "OpenCL: disabled (Apple)")
+endif()
 message(STATUS "Build directory: ${CMAKE_BINARY_DIR}")
 message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")

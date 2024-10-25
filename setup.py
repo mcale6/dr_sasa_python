@@ -1,132 +1,102 @@
-from setuptools import setup, Extension
+from setuptools import setup
 from setuptools.command.build_ext import build_ext
-import sys
-import os
-import subprocess
+from pathlib import Path
 import platform
+import subprocess
+import sys
 
-class CMakeExtension(Extension):
+try:
+    from pybind11.setup_helpers import Pybind11Extension, build_ext
+except ImportError:
+    from setuptools import Extension as Pybind11Extension
+
+
+class CMakeExtension(Pybind11Extension):
     def __init__(self, name):
-        Extension.__init__(self, name, sources=[])
+        super().__init__(name, [])
+
 
 class CMakeBuild(build_ext):
     def build_extension(self, ext):
-        project_root = os.path.dirname(os.path.abspath(__file__))
-        
-        # Create build temp directory
-        if not os.path.exists(self.build_temp):
-            os.makedirs(self.build_temp)
-            
-        # Get OpenMP settings for macOS
-        if platform.system() == "Darwin":
-            try:
-                libomp_path = subprocess.check_output(
-                    ['brew', '--prefix', 'libomp'], 
-                    universal_newlines=True
-                ).strip()
-                print(f"Found libomp at: {libomp_path}")
-                
-                # Set environment variables for OpenMP
-                os.environ['CC'] = 'clang'
-                os.environ['CXX'] = 'clang++'
-                os.environ['CPPFLAGS'] = f"-Xpreprocessor -fopenmp -I{libomp_path}/include"
-                os.environ['CFLAGS'] = f"-Xpreprocessor -fopenmp -I{libomp_path}/include"
-                os.environ['CXXFLAGS'] = f"-Xpreprocessor -fopenmp -I{libomp_path}/include"
-                os.environ['LDFLAGS'] = f"-Wl,-rpath,{libomp_path}/lib {libomp_path}/lib/libomp.dylib"
-                
-                omp_flags = [
-                    f'-DOpenMP_C_FLAGS=-Xpreprocessor -fopenmp -I{libomp_path}/include',
-                    f'-DOpenMP_CXX_FLAGS=-Xpreprocessor -fopenmp -I{libomp_path}/include',
-                    f'-DOpenMP_C_LIB_NAMES=omp',
-                    f'-DOpenMP_CXX_LIB_NAMES=omp',
-                    f'-DOpenMP_omp_LIBRARY={libomp_path}/lib/libomp.dylib',
-                    f'-DOpenMP_CXX_LIB_NAMES=omp',
-                    f'-DOpenMP_CXX_LIBRARIES={libomp_path}/lib/libomp.dylib'
-                ]
-            except subprocess.CalledProcessError:
-                print("Warning: libomp not found, please install with: brew install libomp")
-                omp_flags = []
-                
-            # Set architecture
-            if platform.machine() == 'arm64':
-                arch_flag = "-DCMAKE_OSX_ARCHITECTURES=arm64"
-            else:
-                arch_flag = "-DCMAKE_OSX_ARCHITECTURES=x86_64"
-        else:
-            omp_flags = []
-            arch_flag = ""
-            
-        # Configure cmake arguments
+        # Convert paths to Path objects for better handling
+        project_root = Path(__file__).parent.absolute()
+        build_temp = Path(self.build_temp)
+        ext_fullpath = Path(self.get_ext_fullpath(ext.name))
+
+        # Create build directory
+        build_temp.mkdir(parents=True, exist_ok=True)
+        ext_fullpath.parent.mkdir(parents=True, exist_ok=True)
+
+        # Basic CMake configuration
+        config = 'Debug' if self.debug else 'Release'
         cmake_args = [
-            f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={self.build_temp}',
+            f'-DCMAKE_BUILD_TYPE={config}',
+            f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={build_temp}',
             f'-DPYTHON_EXECUTABLE={sys.executable}',
-            f'-DCMAKE_BUILD_TYPE=Debug'
         ]
-        
-        if arch_flag:
-            cmake_args.append(arch_flag)
-        cmake_args.extend(omp_flags)
-        
-        print(f"Project root: {project_root}")
-        print(f"Build temp: {self.build_temp}")
-        print(f"CMake args: {cmake_args}")
-        print(f"Environment:")
-        for key in ['CC', 'CXX', 'CPPFLAGS', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS']:
-            print(f"  {key}: {os.environ.get(key, 'not set')}")
-        
+
+        # Platform-specific configurations
+        if platform.system() == "Linux":
+            cmake_args.extend([
+                '-DCMAKE_C_COMPILER=gcc',
+                '-DCMAKE_CXX_COMPILER=g++',
+            ])
+
         try:
-            # Run cmake
-            print("\nRunning CMake...")
-            subprocess.check_call(
-                ['cmake', project_root] + cmake_args,
-                cwd=self.build_temp
+            print("Configuring CMake...")
+            subprocess.run(
+                ['cmake', str(project_root)] + cmake_args,
+                cwd=build_temp,
+                check=True,
+                capture_output=True,
+                text=True
             )
-            
-            # Run make
-            print("\nRunning make...")
-            subprocess.check_call(
-                ['make', 'VERBOSE=1'],
-                cwd=self.build_temp
+
+            print("Building extension...")
+            subprocess.run(
+                ['cmake', '--build', '.', '--config', config],
+                cwd=build_temp,
+                check=True,
+                capture_output=True,
+                text=True
             )
-            
-            # Find the built extension file
-            ext_path = None
-            for root, _, files in os.walk(self.build_temp):
-                for file in files:
-                    if file.endswith('.so') and 'dr_sasa_py' in file:
-                        ext_path = os.path.join(root, file)
-                        break
-                if ext_path:
-                    break
-                    
-            if not ext_path:
-                raise RuntimeError("Built extension file not found!")
-                
-            # Create the final directory if it doesn't exist
-            os.makedirs(os.path.dirname(self.get_ext_fullpath(ext.name)), exist_ok=True)
-            
-            # Copy the built extension to its final location
-            print(f"\nCopying {ext_path} to {self.get_ext_fullpath(ext.name)}")
-            self.copy_file(ext_path, self.get_ext_fullpath(ext.name))
-            
+
+            # Find and copy the built extension
+            built_ext = list(build_temp.rglob(f'*dr_sasa_py*.so'))[0]
+            self.copy_file(str(built_ext), str(ext_fullpath))
+
         except subprocess.CalledProcessError as e:
-            print(f"Build failed with error code {e.returncode}")
-            print("Command output:")
-            print(e.output if hasattr(e, 'output') else "No output available")
+            print(f"Build failed!")
+            print(f"Command output:\n{e.output}")
             raise
         except Exception as e:
-            print(f"Error during build: {str(e)}")
+            print(f"Error: {e}")
             raise
 
 setup(
     name='dr_sasa',
     version='0.1',
-    author='Alessio DAddio',
+    author='mcale6',
     description='Python bindings for dr_sasa',
+    long_description='',
     ext_modules=[CMakeExtension('dr_sasa_py')],
     cmdclass={'build_ext': CMakeBuild},
+    zip_safe=False,
+    python_requires='>=3.7',
     install_requires=[
-        'numpy',
-        'pytest'
+        'numpy>=1.20.0',
+        'pytest>=6.0.0',
+    ],
+    extras_require={
+        'dev': [
+            'pytest',
+            'pytest-cov',
+            'flake8',
+        ],
+    },
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: MIT License',
     ],
 )
