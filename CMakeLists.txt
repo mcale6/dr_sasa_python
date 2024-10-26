@@ -52,8 +52,6 @@ set(CORE_SOURCES
 add_library(dr_sasa_core STATIC ${CORE_SOURCES})
 target_include_directories(dr_sasa_core
     PUBLIC 
-        ${CMAKE_SOURCE_DIR}/dr_sasa_n/include
-    PRIVATE
         ${CMAKE_SOURCE_DIR}/dr_sasa_n/src
 )
 
