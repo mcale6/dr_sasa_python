@@ -91,7 +91,6 @@ def test_basic_sasa():
     assert os.path.exists(test_pdb), f"Test PDB file not found: {test_pdb}"
     
     results = calc.calculate_sasa(test_pdb)
-    
     # Basic checks
     assert 'total_sasa' in results, "Missing total_sasa in results"
     assert results['total_sasa'] > 0, "Total SASA should be positive"
@@ -102,6 +101,11 @@ def test_basic_sasa():
     print(f"Total SASA: {results['total_sasa']:.2f} Å²")
     print(f"Number of atoms: {len(results['atom_sasa'])}")
     print(f"First atom SASA: {results['atom_sasa'][0]:.2f} Å²")
-
+    
+    print("\nFirst 5 atoms:")
+    for i in range(min(5, len(results['atom_sasa']))):
+        print(f"Atom {results['atom_names'][i]} ({results['residue_names'][i]} {results['residue_numbers'][i]}): "
+              f"{results['atom_sasa'][i]:.2f} Å²")
+        
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    pytest.main([__file__, "-v", "-s"])  # -s flag to show print statements
