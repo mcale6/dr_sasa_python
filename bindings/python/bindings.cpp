@@ -22,7 +22,6 @@ using std::runtime_error;
 
 // External function declarations
 extern void SimpleSolverCL(vector<atom_struct>& pdb, vector<float>& points, int cl_mode);
-extern vector<atom_struct> PDBparser(const string& fname, const string& type_dict, bool keep_unknown);
 
 class SimpleSASA {
 public:
