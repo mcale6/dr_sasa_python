@@ -5,10 +5,10 @@ from pathlib import Path
 # Try different potential build paths
 build_paths = [
     Path("build/lib"),
-    Path("build/lib.linux-x86_64-cpython-310"),  # Common Linux path
-    Path("build/lib.linux-x86_64-3.10"),         # Alternative Linux path
-    Path("build/lib.macosx-10.9-x86_64-3.10"),   # Mac path
-    Path("build"),                               # Direct build
+    Path("build/lib.linux-x86_64-cpython-310"),  
+    Path("build/lib.linux-x86_64-3.10"),         
+    Path("build/lib.macosx-10.9-x86_64-3.10"),   
+    Path("build"),                               
 ]
 
 # Add all potential paths
@@ -28,12 +28,12 @@ def test_import():
     except ImportError as e:
         print(f"Direct import failed: {e}")
 
-    # Method 2: From import
+    # Method 2: From import all SASA classes
     try:
-        from dr_sasa_py import SimpleSASA
-        import_methods.append("From import SimpleSASA successful")
+        from dr_sasa_py import SimpleSASA, GenericSASA, DecoupledSASA
+        import_methods.append("From import SASA classes successful")
     except ImportError as e:
-        print(f"From import SimpleSASA failed: {e}")
+        print(f"From import SASA classes failed: {e}")
 
     # Method 3: Import using importlib
     try:
@@ -66,7 +66,7 @@ def test_import():
     if "Direct import successful" in import_methods:
         import dr_sasa_py
         return dr_sasa_py
-    elif "From import SimpleSASA successful" in import_methods:
+    elif "From import SASA classes successful" in import_methods:
         from dr_sasa_py import SimpleSASA
         return SimpleSASA
     elif "Importlib import successful" in import_methods:
@@ -90,7 +90,9 @@ def test_basic_sasa():
     test_pdb = os.path.join(os.path.dirname(__file__), "data", "3i40.pdb")
     assert os.path.exists(test_pdb), f"Test PDB file not found: {test_pdb}"
     
-    results = calc.calculate_sasa(test_pdb)
+    # Note: changed calculate_sasa to calculate
+    results = calc.calculate(test_pdb)
+    
     # Basic checks
     assert 'total_sasa' in results, "Missing total_sasa in results"
     assert results['total_sasa'] > 0, "Total SASA should be positive"
