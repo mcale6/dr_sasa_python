@@ -1,14 +1,13 @@
-name: dr_sasa_env
+name: dr_sasa
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.12
+  - python>=3.7
   - pip
-  - numpy
-  - pytest
-  - pybind11>=2.10.0
   - cmake>=3.18
-  - ninja  # Optional but recommended for faster builds
+  - pybind11>=2.6.0
+  - numpy>=1.20.0
+  - pytest>=6.0.0
   - pip:
-    - pytest-cov  # For test coverage
+    - -e .
