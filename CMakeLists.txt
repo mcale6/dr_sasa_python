@@ -16,6 +16,7 @@ set(CORE_SOURCES
     dr_sasa_n/src/SetRadius.cpp
     dr_sasa_n/src/SurfaceSolverCL.cpp
     dr_sasa_n/src/stdafx.cpp
+    dr_sasa_n/src/SearchFunctions.cpp
 )
 
 # Core library
