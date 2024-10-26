@@ -1,9 +1,7 @@
 import pytest
 import os, sys
-from pathlib import Path
-build_path = Path("build")
-sys.path.append(str(build_path.absolute()))
-print(f"Added build path: {build_path.absolute()}")
+import sys
+sys.path.append('./dr_sasa_python')
 from dr_sasa_py import DrSASA, ComputeBackend
 import numpy as np
 #python setup.py build_ext --inplace
