@@ -32,7 +32,7 @@ public:
     py::dict calculate_sasa(const string& pdb_file) {
         try {
             // Parse PDB and calculate SASA
-            auto atoms = PDBparser(pdb_file, "", true);
+            auto atoms = PDBparser(static_cast<const string&>(pdb_file), "", true);
             if (atoms.empty()) {
                 throw runtime_error("No atoms loaded from PDB file");
             }
