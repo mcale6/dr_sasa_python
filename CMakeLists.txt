@@ -12,11 +12,18 @@ find_package(pybind11 REQUIRED)
 # Core source files - only what we need for SASA
 set(CORE_SOURCES
     dr_sasa_n/src/atom_struct.cpp
+    dr_sasa_n/src/residue_struct.cpp
     dr_sasa_n/src/PDBparser2.cpp
     dr_sasa_n/src/SetRadius.cpp
     dr_sasa_n/src/SurfaceSolverCL.cpp
-    dr_sasa_n/src/stdafx.cpp
+    dr_sasa_n/src/NB.cpp
+    dr_sasa_n/src/SolverDataProcessing.cpp
+    dr_sasa_n/src/NonEffective.cpp
+    dr_sasa_n/src/histogram.cpp
     dr_sasa_n/src/SearchFunctions.cpp
+    dr_sasa_n/src/SurfaceSolverOnTheFly.cpp
+    dr_sasa_n/src/dr_sasa.cpp
+    dr_sasa_n/src/stdafx.cpp
 )
 
 # Core library
