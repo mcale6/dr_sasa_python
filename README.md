@@ -2,38 +2,15 @@
 
 Python bindings for the [dr_sasa_n](https://github.com/nioroso-x3/dr_sasa_n.git) library for calculating Solvent Accessible Surface Area.
 
-Still work in progress.
+! Still work in progress.
 
 ## Installation
+Clone Repo: git clone --recursive https://github.com/mcale6/dr_sasa_python.git
+Dependencies: pybind11 numpy pandas pytest cmake ocl-icd-opencl-dev
+After installation test if the module can be imported
+python dr_sasa_python/tests/test_import.py
 
-### Prerequisites
-- Conda (or Miniconda)
-- CMake (>=3.18)
-- C++ compiler with C++17 support
-
-### Installation Steps
-
-1. Clone the repository:
-```bash
-git clone https://github.com/mcale6/dr_sasa_python.git
-cd dr_sasa_python
-```
-
-2. Create and activate conda environment:
-```bash
-conda env create -f environment.yml
-conda activate dr_sasa_env
-```
-
-3. Install the package:
-```bash
-pip install -e .
-```
-
-### Running Tests
-```bash
-pytest tests/
-```
+Check install.sh for more details.
 
 ## Usage
 
