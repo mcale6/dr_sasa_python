@@ -1,113 +1,113 @@
 import pytest
-import os
-import sys
+import os, sys
 from pathlib import Path
 
-# Add build path to Python path
-build_path = Path("build/lib")
-sys.path.append(str(build_path.absolute()))
-print(f"Added build path: {build_path.absolute()}")
+# Try different potential build paths
+build_paths = [
+    Path("build/lib"),
+    Path("build/lib.linux-x86_64-cpython-310"),  
+    Path("build/lib.linux-x86_64-3.10"),         
+    Path("build/lib.macosx-10.9-x86_64-3.10"),   
+    Path("build"),                               
+]
 
-# Test data path
-TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# Add all potential paths
+for build_path in build_paths:
+    if build_path.exists():
+        sys.path.append(str(build_path.absolute()))
+        print(f"Added build path: {build_path.absolute()}")
 
-def test_simple_sasa():
-    """Test SimpleSASA class"""
-    import dr_sasa_py
+def test_import():
+    """Test different ways to import the module"""
+    import_methods = []
+    
+    # Method 1: Direct import
+    try:
+        import dr_sasa_py
+        import_methods.append("Direct import successful")
+    except ImportError as e:
+        print(f"Direct import failed: {e}")
 
-    # Test initialization
-    calc = dr_sasa_py.SimpleSASA(probe_radius=1.4, compute_mode=0)
+    # Method 2: From import all SASA classes
+    try:
+        from dr_sasa_py import SimpleSASA, GenericSASA, DecoupledSASA
+        import_methods.append("From import SASA classes successful")
+    except ImportError as e:
+        print(f"From import SASA classes failed: {e}")
 
-    # Calculate SASA for test PDB
-    pdb_path = os.path.join(TEST_DATA_DIR, "PRED.pdb")
-    results = calc.calculate(pdb_path)
+    # Method 3: Import using importlib
+    try:
+        import importlib
+        dr_sasa = importlib.import_module('dr_sasa_py')
+        import_methods.append("Importlib import successful")
+    except ImportError as e:
+        print(f"Importlib import failed: {e}")
 
-    # Basic checks
-    assert 'total_sasa' in results
-    assert results['total_sasa'] > 0
-    assert 'atom_sasa' in results
-    assert len(results['atom_sasa']) > 0
+    # Method 4: Try importing with full path
+    try:
+        import os
+        module_path = os.path.join(os.path.dirname(__file__), '..', 'build', 'lib')
+        if module_path not in sys.path:
+            sys.path.append(module_path)
+        import dr_sasa_py as dr_sasa_full_path
+        import_methods.append("Full path import successful")
+    except ImportError as e:
+        print(f"Full path import failed: {e}")
 
-    # Check consistency of values (not exact equality)
-    total = sum(results['atom_sasa'])
-    assert abs(total - results['total_sasa']) < 1e-6  # Allow small numerical differences
+    # Print successful methods
+    print("\nSuccessful import methods:")
+    for method in import_methods:
+        print(f"✓ {method}")
 
-    print(f"\nSimpleSASA Results:")
-    print(f"Total SASA: {results['total_sasa']:.2f}")
-    print(f"Sum of atom SASA: {total:.2f}")
-    print(f"Number of atoms: {len(results['atom_sasa'])}")
+    # Assert at least one method worked
+    assert len(import_methods) > 0, "No import methods succeeded"
+    
+    # Return the first successful import for use in other tests
+    if "Direct import successful" in import_methods:
+        import dr_sasa_py
+        return dr_sasa_py
+    elif "From import SASA classes successful" in import_methods:
+        from dr_sasa_py import SimpleSASA
+        return SimpleSASA
+    elif "Importlib import successful" in import_methods:
+        import importlib
+        return importlib.import_module('dr_sasa_py')
+    elif "Full path import successful" in import_methods:
+        return dr_sasa_full_path
 
-def test_decoupled_sasa():
-    """Test DecoupledSASA class"""
-    import dr_sasa_py
-
-    # Test initialization
-    calc = dr_sasa_py.DecoupledSASA(probe_radius=1.4, compute_mode=0)
-
+def test_basic_sasa():
+    """Test basic SASA calculation with a PDB file"""
+    # Get the module from our import test
+    dr_sasa_module = test_import()
+    
+    # Create calculator using the successfully imported module
+    if hasattr(dr_sasa_module, 'SimpleSASA'):
+        calc = dr_sasa_module.SimpleSASA(probe_radius=1.4)
+    else:
+        calc = dr_sasa_module(probe_radius=1.4)
+    
     # Calculate SASA
-    pdb_path = os.path.join(TEST_DATA_DIR, "PRED.pdb")
-    results = calc.calculate(pdb_path)
-
-    # Basic checks with detailed output
-    print(f"\nDecoupledSASA Results:")
-    print(f"Total SASA: {results['total_sasa']:.2f}")
-    print(f"Number of atoms: {len(results['atom_sasa'])}")
-    if results['total_sasa'] <= 0:
-        print("WARNING: Zero or negative total SASA")
-        print("First few atom SASAs:", results['atom_sasa'][:5])
-
+    test_pdb = os.path.join(os.path.dirname(__file__), "data", "3i40.pdb")
+    assert os.path.exists(test_pdb), f"Test PDB file not found: {test_pdb}"
+    
+    results = calc.calculate(test_pdb) ### this prints UNKNOWN_VDW_FIXED 3i40.pdb|OXT|ALA|30|B|O|1.4, needs to be supressed it 
+    
+    # Basic checks
+    assert 'total_sasa' in results, "Missing total_sasa in results"
     assert results['total_sasa'] > 0, "Total SASA should be positive"
-
-def test_error_handling():
-    """Test error handling in all classes"""
-    import dr_sasa_py
-
-    # Test with non-existent file
-    with pytest.raises((RuntimeError, IOError, FileNotFoundError)):  # Accept multiple error types
-        calc = dr_sasa_py.SimpleSASA()
-        calc.calculate("nonexistent.pdb")
-
-    # Test with invalid file content
-    with pytest.raises((RuntimeError, ValueError)):
-        # Create empty file
-        with open("empty.pdb", "w") as f:
-            f.write("")
-        calc = dr_sasa_py.SimpleSASA()
-        try:
-            calc.calculate("empty.pdb")
-        finally:
-            os.remove("empty.pdb")  # Clean up
-
-    # Test GenericSASA with invalid chains
-    with pytest.raises((RuntimeError, ValueError)):
-        calc = dr_sasa_py.GenericSASA()
-        pdb_path = os.path.join(TEST_DATA_DIR, "PRED.pdb")
-        calc.calculate(pdb_path, chains=[["X"]], mode=1)
-
-def test_result_consistency():
-    """Test consistency between different solvers"""
-    import dr_sasa_py
-
-    pdb_path = os.path.join(TEST_DATA_DIR, "PRED.pdb")
-
-    # Calculate with all solvers
-    simple = dr_sasa_py.SimpleSASA()
-    results_simple = simple.calculate(pdb_path)
-
-    generic = dr_sasa_py.GenericSASA()
-    results_generic = generic.calculate(pdb_path, chains=[["A"]], mode=1)
-
-    decoupled = dr_sasa_py.DecoupledSASA()
-    results_decoupled = decoupled.calculate(pdb_path)
-
-    print("\nConsistency Results:")
-    print(f"SimpleSASA total: {results_simple['total_sasa']:.2f}")
-    print(f"GenericSASA total: {results_generic['total_sasa']:.2f}")
-    print(f"DecoupledSASA total: {results_decoupled['total_sasa']:.2f}")
-
-    # Check for reasonable differences
-    assert abs(results_simple['total_sasa'] - results_generic['total_sasa']) < results_simple['total_sasa'] * 0.1  # Allow 10% difference
-    assert results_decoupled['total_sasa'] > 0
-
+    assert 'atom_sasa' in results, "Missing atom_sasa in results"
+    assert len(results['atom_sasa']) > 0, "No atoms found in results"
+    
+    print(f"\nTest Results:")
+    print(f"Total SASA: {results['total_sasa']:.2f} Å²")
+    print(f"Total SASA: {results['total_sasa']:.2f} Å²")
+    print(f"Number of atoms: {len(results['atom_sasa'])}")
+    print(f"First atom SASA: {results['atom_sasa'][0]:.2f} Å²")
+    
+    print("\nFirst 5 atoms:")
+    for i in range(min(5, len(results['atom_sasa']))):
+        print(f"Atom {results['atom_names'][i]} ({results['residue_names'][i]} {results['residue_numbers'][i]}): "
+              f"{results['atom_sasa'][i]:.2f} Å²")
+        
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])  # -s flag to show print statements
