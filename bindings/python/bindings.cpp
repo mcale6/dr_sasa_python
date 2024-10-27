@@ -87,53 +87,41 @@ public:
 
 // Method implementations
 py::dict SimpleSASA::calculate(const string& pdb_file) {
-    try {
-        auto atoms = PDBparser(pdb_file, "", true);
-        if (atoms.empty()) {
-            throw runtime_error("No atoms loaded from PDB file");
-        }
-        
-        vdw_radii_.SetRadius(atoms, probe_radius_);
-        SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
-        
-        return create_unified_results(atoms);
-    } catch (const std::exception& e) {
-        throw runtime_error(string("SASA calculation failed: ") + e.what());
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw runtime_error("No atoms loaded from PDB file");
     }
+    
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
+    
+    return create_unified_results(atoms);
 }
 
 py::dict GenericSASA::calculate(const string& pdb_file, 
                               const vector<vector<string>>& chains,
                               int mode) {
-    try {
-        auto atoms = PDBparser(pdb_file, "", true);
-        if (atoms.empty()) {
-            throw runtime_error("No atoms loaded from PDB file");
-        }
-        
-        vdw_radii_.SetRadius(atoms, probe_radius_);
-        Generic_Solver(atoms, vdw_radii_.Points, chains, mode, cl_mode_);
-        
-        return create_unified_results(atoms);
-    } catch (const std::exception& e) {
-        throw runtime_error(string("Generic SASA calculation failed: ") + e.what());
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw runtime_error("No atoms loaded from PDB file");
     }
+    
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    Generic_Solver(atoms, vdw_radii_.Points, chains, mode, cl_mode_);
+    
+    return create_unified_results(atoms);
 }
 
 py::dict DecoupledSASA::calculate(const string& pdb_file) {
-    try {
-        auto atoms = PDBparser(pdb_file, "", true);
-        if (atoms.empty()) {
-            throw runtime_error("No atoms loaded from PDB file");
-        }
-        
-        vdw_radii_.SetRadius(atoms, probe_radius_);
-        DecoupledSolver(atoms, vdw_radii_.Points);
-        
-        return create_unified_results(atoms);
-    } catch (const std::exception& e) {
-        throw runtime_error(string("Decoupled SASA calculation failed: ") + e.what());
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw runtime_error("No atoms loaded from PDB file");
     }
+    
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    DecoupledSolver(atoms, vdw_radii_.Points);
+    
+    return create_unified_results(atoms);
 }
 
 py::dict BaseSASA::create_unified_results(const vector<atom_struct>& atoms) const {
