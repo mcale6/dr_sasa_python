@@ -16,6 +16,7 @@
 #include "PDBparser2.h"
 #include "SetRadius.h"
 #include "SurfaceSolverCL.h"
+#include "SurfaceSolverOnTheFly.h"
 
 namespace py = pybind11;
 using namespace py::literals;  // Adds support for _a literal
@@ -30,17 +31,15 @@ using std::runtime_error;
 extern void SimpleSolverCL(vector<atom_struct>& pdb, vector<float>& points, int cl_mode);
 extern void Generic_Solver(vector<atom_struct>& pdb, vector<float>& points, vector<vector<string>> obj1, int mode, int cl_mode);
 extern void DecoupledSolver(vector<atom_struct>& pdb, vector<float>& points);
-extern void ChainSelector(vector<vector<string>>& chain_sep, vector<atom_struct>& pdb);
+extern void ChainSelector(vector<vector<string>>& selection, vector<atom_struct>& pdb);
 extern void RelativeSASA(vector<atom_struct>& pdb);
 extern void GeneratePairInteractionData(vector<atom_struct>& pdb);
-extern void SolveInteractions(vector<atom_struct>& pdb, int mode);
-
-// Additional useful external functions we might need
-extern void CalculateDNA_ProtInteractions(vector<atom_struct>& pdb, int mode);
-extern vector<atom_struct> ReorderPDB(const vector<atom_struct>& pdb);
+extern void SolveInteractions(vector<atom_struct>& pdb, uint32 mode);
+// Additional useful external functions we might need later
+//extern void CalculateDNA_ProtInteractions(vector<atom_struct>& pdb, int mode);
+//extern vector<atom_struct> ReorderPDB(const vector<atom_struct>& pdb);
 
 static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;  // Water probe in Angstroms
-
 
 // Simple SASA (Mode 0)
 class SimpleSASA {
@@ -84,10 +83,10 @@ public:
         vdw_radii_.GenPoints();
     }
     
-    py::dict calculate(const string& pdb_file, const vector<vector<string>>& chains);
+    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
 };
 
-py::dict GenericSASA::calculate(const string& pdb_file, const vector<vector<string>>& chains) {
+py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {  
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -134,10 +133,10 @@ public:
         vdw_radii_.GenPoints();
     }
     
-    py::dict calculate(const string& pdb_file, const vector<vector<string>>& chains);
+    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
 };
 
-py::dict DecoupledSASA::calculate(const string& pdb_file, const vector<vector<string>>& chains) {
+py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -158,14 +157,14 @@ py::dict DecoupledSASA::calculate(const string& pdb_file, const vector<vector<st
 }
 
 // Relative SASA (Mode 100)
-class RelativeSASA {
+class RelSASA {
 private:
     float probe_radius_;
     int cl_mode_;
     VDWcontainer vdw_radii_;
 
 public:
-    RelativeSASA(float probe_radius = 1.4f, int compute_mode = 0) 
+    RelSASA(float probe_radius = 1.4f, int compute_mode = 0) 
         : probe_radius_(probe_radius), cl_mode_(compute_mode) {
         vdw_radii_.GenPoints();
     }
@@ -173,7 +172,7 @@ public:
     py::dict calculate(const string& pdb_file);
 };
 
-py::dict RelativeSASA::calculate(const string& pdb_file) {
+py::dict RelSASA::calculate(const string& pdb_file) {
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -187,8 +186,7 @@ py::dict RelativeSASA::calculate(const string& pdb_file) {
     return create_analysis_results(atoms, false);
 }
 
-
-
+// Check SolverDataPorcessing for simplyfing this. 
 py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_matrix = true) {
     py::dict results;
     const size_t n_atoms = atoms.size();
@@ -286,7 +284,7 @@ py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_
                 min(atom.MOL_TYPE, partner.MOL_TYPE),
                 max(atom.MOL_TYPE, partner.MOL_TYPE)
             );
-            mol_type_contacts[type_pair] += atom.CONTACT_AREA[interaction];
+            mol_type_contacts[type_pair] += 1; //atom.CONTACT_AREA[interaction]; needs to be fixed
         }
     }
 
@@ -391,11 +389,11 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              "Returns dict with SASA values and contact matrices.");
 
     // Relative SASA (Mode 100)
-    py::class_<RelativeSASA>(m, "RelativeSASA")
+    py::class_<RelSASA>(m, "RelativeSASA")
         .def(py::init<float, int>(),
              py::arg("probe_radius") = 1.4f,
              py::arg("compute_mode") = 0)
-        .def("calculate", &RelativeSASA::calculate,
+        .def("calculate", &RelSASA::calculate,
              py::arg("pdb_file"),
              "Calculate relative SASA using mode 100.\n"
              "Returns dict with SASA values and relative accessibility.");
@@ -408,8 +406,8 @@ PYBIND11_MODULE(dr_sasa_py, m) {
     "Quick calculation of simple SASA (Mode 0)");
 
     m.def("calculate_delta_sasa", [](const string& pdb_file, 
-                                   const vector<vector<string>>& chains,
-                                   float probe_radius = 1.4f) {
+                                    vector<vector<string>>& chains,  // Non-const chains!
+                                    float probe_radius = 1.4f) {
         GenericSASA calculator(probe_radius);
         return calculator.calculate(pdb_file, chains);
     }, py::arg("pdb_file"), py::arg("chains"), py::arg("probe_radius") = 1.4f,
