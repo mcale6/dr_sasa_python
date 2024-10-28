@@ -35,9 +35,13 @@ extern void ChainSelector(vector<vector<string>>& selection, vector<atom_struct>
 extern void RelativeSASA(vector<atom_struct>& pdb);
 extern void GeneratePairInteractionData(vector<atom_struct>& pdb);
 extern void SolveInteractions(vector<atom_struct>& pdb, uint32 mode);
+
 // Additional useful external functions we might need later
-//extern void CalculateDNA_ProtInteractions(vector<atom_struct>& pdb, int mode);
-//extern vector<atom_struct> ReorderPDB(const vector<atom_struct>& pdb);
+// GenerateInterBSAMatrix 
+// GenerateIntraBSAMatrix
+// CalculateDNA_ProtInteractions DNA /Prtoein?
+// GeneratePDistribution
+// AddRawAtomxNucData
 
 static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;  // Water probe in Angstroms
 
@@ -186,6 +190,7 @@ py::dict RelSASA::calculate(const string& pdb_file) {
     return create_analysis_results(atoms, false);
 }
 
+
 // Check SolverDataPorcessing for simplyfing this. 
 py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_matrix = true) {
     py::dict results;
@@ -284,7 +289,7 @@ py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_
                 min(atom.MOL_TYPE, partner.MOL_TYPE),
                 max(atom.MOL_TYPE, partner.MOL_TYPE)
             );
-            mol_type_contacts[type_pair] += 1; //atom.CONTACT_AREA[interaction]; needs to be fixed
+            mol_type_contacts[type_pair] += 1; //atom.CONTACT_AREA[interaction]; not all mode have this
         }
     }
 
