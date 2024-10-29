@@ -1,9 +1,19 @@
 # DR_SASA Python Bindings
 
-Python bindings for dr_sasa (Solvent Accessible Surface Area Calculator)
+Python bindings for dr_sasa (Solvent Accessible Surface Area Calculator). If you use DR_SASA in your research, please cite: \
+Ribeiro, J., Ríos-Vera, C., Melo, F. and Schüller, A. (2018) “Calculation of accurate contact surface areas between atoms for the quantitative analysis of non-bonded molecular interactions”. Bioinformatics
 
 ## Overview
-dr_sasa is a high-performance tool for calculating Solvent Accessible Surface Area (SASA) and various forms of differential SASA analyses. These Python bindings provide efficient access to all DR_SASA functionality with minimal overhead.
+dr_sasa is a high-performance tool for calculating Solvent Accessible Surface Area (SASA). +
+
+- Work on linux system with openmp.
+- Minimal Python/C++ boundary crossing using pybinding11
+- Uses memory access with NumPy arrays (maybe there is a better method)
+
+- In progress: No file writing and saving optional
+- In progress: Supports OpenCL/Cude acceleration 
+- In progress: Contact analysis
+
 
 ## Installation
 
@@ -12,128 +22,142 @@ dr_sasa is a high-performance tool for calculating Solvent Accessible Surface Ar
 - NumPy
 - A C++17 compatible compiler
 - CMake 3.15+
+- pybinding11
 
 ### Installation Steps
 
+Check install.sh
 
 
 ## Usage
 
 ### Available Modes
+# DR_SASA Python Bindings
 
-1. **Simple SASA (Mode 0)**
-   - Basic SASA calculation for molecular structures
-   ```python
-   from drsasa import SimpleSASA
-   
-   calculator = SimpleSASA()
-   calculator.set_probe_radius(1.4)  # Water probe radius in Angstroms
-   result = calculator.run("protein.pdb")
-   print(f"Total SASA: {result.statistics['total_sasa']}")
-   ```
+Python bindings for dr_sasa (Solvent Accessible Surface Area Calculator)
 
-2. **Generic Delta SASA (Mode 1)**
-   - Calculates SASA differences between chain groups
-   ```python
-   from drsasa import GenericDSASA
-   
-   calculator = GenericDSASA()
-   calculator.set_chains([["A", "B"], ["C", "D"]])
-   result = calculator.run("complex.pdb")
-   ```
+[Previous general sections remain the same until Usage...]
 
-3. **Internal SASA Analysis**
-   - **Residue Mode (Mode 2)**: Residue-level internal contacts
-   - **Atom Mode (Mode 3)**: Atom-level internal contacts
-   ```python
-   from drsasa import InternalDSASA
-   
-   # Residue mode
-   residue_calc = InternalDSASA.create_residue_mode()
-   residue_result = residue_calc.run("protein.pdb")
-   
-   # Atom mode
-   atom_calc = InternalDSASA.create_atom_mode()
-   atom_result = atom_calc.run("protein.pdb")
-   ```
+## Class Structure
 
-4. **Decoupled Delta SASA (Mode 4)**
-   - Separate surface calculations for molecular or chain contacts
-   ```python
-   from drsasa import DecoupledDSASA
-   
-   calculator = DecoupledDSASA()
-   result = calculator.run("complex.pdb")
-   ```
-
-### Common Parameters
-
-All calculators support these basic parameters:
+### 1. SimpleSASA
+Basic SASA calculator for single structures.
 ```python
-calculator.set_probe_radius(1.4)       # Set water probe radius
-calculator.set_vdw_file("vdw.dat")     # Custom VdW radii
-calculator.set_cl_mode(1)              # OpenCL acceleration mode
-calculator.enable_reorder(True)        # Enable atom reordering
+from dr_sasa_py import SimpleSASA
+
+calculator = SimpleSASA(probe_radius=1.4, compute_mode=0)
+result = calculator.calculate("protein.pdb")
 ```
 
-### Result Structure
+### 2. GenericSASA
+Calculates delta SASA between chain groups with automatic mode detection.
+```python
+from dr_sasa_py import GenericSASA
 
-All calculations return a `DRSASAResult` object containing:
-- `sasa`: NumPy array of SASA values
-- `rel_sasa`: Relative SASA values (when applicable)
-- `coordinates`: Atomic coordinates
-- `metadata`: Dictionary of additional data
-- `statistics`: Calculation statistics
+calculator = GenericSASA(probe_radius=1.4, compute_mode=0)
+# Modes automatically selected:
+# - Mode 4: Automatic (single chain group)
+# - Mode 1: Manual (multiple chain groups)
+# - Mode 5: Protein-protein (exactly two protein chains)
+result = calculator.calculate("complex.pdb", chains=[["A"], ["B"]])
+```
+
+### 3. DecoupledSASA
+Calculates contact surfaces between molecular components.
+```python
+from dr_sasa_py import DecoupledSASA
+
+calculator = DecoupledSASA(probe_radius=1.4, compute_mode=0)
+# Modes automatically selected:
+# - Mode 2: Molecular contacts
+# - Mode 3: Chain contacts
+result = calculator.calculate("complex.pdb", chains=[["A", "B"]])
+```
+
+### 4. RelativeSASA
+Calculates relative accessibility compared to reference state.
+```python
+from dr_sasa_py import RelativeSASA
+
+calculator = RelativeSASA(probe_radius=1.4, compute_mode=0)
+result = calculator.calculate("protein.pdb")
+```
+
+## Result Structure
+
+All calculations return a dictionary with the following structure:
+
+### 1. Atom Information
+```python
+result["atom_info"] = {
+    "names": list,          # Atom names (e.g., "CA", "N", "O")
+    "elements": list,       # Element types
+    "mol_types": list,      # Molecule types (e.g., "PROTEIN", "DNA")
+    "coordinates": array,   # Nx3 array of atomic coordinates
+    "radii": array,        # VdW radii
+    "occupancies": array,  # Occupancy values
+    "b_factors": array,    # Temperature factors
+    "charges": list,       # Atomic charges
+    "is_hetatm": list,    # HETATM flags
+    "atom_types": array    # Internal atom type classifications
+}
+```
+
+### 2. SASA Results
+```python
+result["sasa"] = {
+    "values": array,       # Per-atom SASA values
+    "delta": array,        # Delta SASA values (when applicable)
+    "relative": array,     # Relative SASA values
+    "by_mol_type": dict   # SASA summed by molecule type
+}
+```
+
+### 3. Interface Analysis
+```python
+result["interface"] = {
+    "total_area": float,              # Total interface area
+    "buried_surface_area": float,     # Total buried surface
+    "by_chain": dict,                 # Interface area per chain
+    "atoms": dict                     # Interface atoms by chain
+}
+```
+
+### 4. Molecular Analysis
+```python
+result["molecular"] = {
+    "atoms_by_type": dict,     # Count of atoms per molecular type
+    "residues_by_type": dict,  # Count of residues per type
+    "type_contacts": dict      # Contacts between molecular types
+}
+```
+
+### 5. Interaction Data (when available)
+```python
+result["interactions"] = {
+    "by_type": dict,          # Interactions grouped by molecular types
+    "energies": array         # Interaction energies
+}
+```
+
+## Example Analysis
 
 ```python
-result = calculator.run("protein.pdb")
-print(result.sasa)           # SASA values
-print(result.statistics)     # Statistical information
-print(result.metadata)       # Additional metadata
-```
+calculator = SimpleSASA(probe_radius=1.4)
+result = calculator.calculate("protein.pdb")
 
-## Advanced Features
+# Basic SASA analysis
+total_sasa = result["sasa"]["values"].sum()
+per_residue_sasa = {}
+for i, resname in enumerate(result["atom_info"]["residue_names"]):
+    per_residue_sasa[resname] = result["sasa"]["values"][i]
 
-### Matrix Output
-Many modes support matrix output for detailed analysis:
-```python
-calculator.set_matrix_output(True)
-result = calculator.run("protein.pdb")
-matrix = result.statistics["interaction_matrix"]
-```
+# Molecular composition
+mol_composition = result["molecular"]["atoms_by_type"]
+print(f"Molecule contains: {mol_composition}")
 
-### Chain Selection
-Specify chain groups for analysis:
-```python
-calculator.set_chains([["A", "B"], ["C", "D"]])  # Compare AB vs CD
-# or
-calculator.set_chains([["A"]])  # Single chain analysis
-```
-
-### Quick Functions
-Convenience functions for common operations:
-```python
-from drsasa import calculate_simple_sasa, calculate_delta_sasa
-
-# Quick SASA calculation
-result = calculate_simple_sasa("protein.pdb")
-
-# Quick delta SASA between chains
-result = calculate_delta_sasa("complex.pdb", [["A"], ["B"]])
-```
-
-## Performance Considerations
-
-- Uses direct memory access with NumPy arrays
-- Supports OpenCL acceleration
-- Efficient handling of large structures
-- Minimal Python/C++ boundary crossing
-- No file writing and saving!
-
-## Citation
-
-If you use DR_SASA in your research, please cite:
-```
-Authors: Ribeiro J., Ríos-Vera C., Melo F., Schüller A.
-Version: 0.5.0
+# Interface analysis (for applicable modes)
+if "interface" in result:
+    print(f"Total interface area: {result['interface']['total_area']}")
+    print(f"Buried surface area: {result['interface']['buried_surface_area']}")
 ```
