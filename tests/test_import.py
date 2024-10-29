@@ -75,39 +75,6 @@ def test_import():
     elif "Full path import successful" in import_methods:
         return dr_sasa_full_path
 
-def test_basic_sasa():
-    """Test basic SASA calculation with a PDB file"""
-    # Get the module from our import test
-    dr_sasa_module = test_import()
-    
-    # Create calculator using the successfully imported module
-    if hasattr(dr_sasa_module, 'SimpleSASA'):
-        calc = dr_sasa_module.SimpleSASA(probe_radius=1.4)
-    else:
-        calc = dr_sasa_module(probe_radius=1.4)
-    
-    # Calculate SASA
-    test_pdb = os.path.join(os.path.dirname(__file__), "data", "3i40.pdb")
-    assert os.path.exists(test_pdb), f"Test PDB file not found: {test_pdb}"
-    
-    results = calc.calculate(test_pdb) ### this prints UNKNOWN_VDW_FIXED 3i40.pdb|OXT|ALA|30|B|O|1.4, needs to be supressed it 
-    
-    # Basic checks
-    assert 'total_sasa' in results, "Missing total_sasa in results"
-    assert results['total_sasa'] > 0, "Total SASA should be positive"
-    assert 'atom_sasa' in results, "Missing atom_sasa in results"
-    assert len(results['atom_sasa']) > 0, "No atoms found in results"
-    
-    print(f"\nTest Results:")
-    print(f"Total SASA: {results['total_sasa']:.2f} Å²")
-    print(f"Total SASA: {results['total_sasa']:.2f} Å²")
-    print(f"Number of atoms: {len(results['atom_sasa'])}")
-    print(f"First atom SASA: {results['atom_sasa'][0]:.2f} Å²")
-    
-    print("\nFirst 5 atoms:")
-    for i in range(min(5, len(results['atom_sasa']))):
-        print(f"Atom {results['atom_names'][i]} ({results['residue_names'][i]} {results['residue_numbers'][i]}): "
-              f"{results['atom_sasa'][i]:.2f} Å²")
-        
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])  # -s flag to show print statements

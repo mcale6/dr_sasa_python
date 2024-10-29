@@ -45,152 +45,6 @@ extern void SolveInteractions(vector<atom_struct>& pdb, uint32 mode);
 
 static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;  // Water probe in Angstroms
 
-// Simple SASA (Mode 0)
-class SimpleSASA {
-private:
-    float probe_radius_;
-    int cl_mode_;
-    VDWcontainer vdw_radii_;
-
-public:
-    SimpleSASA(float probe_radius = 1.4f, int compute_mode = 0) 
-        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
-        vdw_radii_.GenPoints();
-    }
-    
-    py::dict calculate(const string& pdb_file);
-};
-
-py::dict SimpleSASA::calculate(const string& pdb_file) {
-    auto atoms = PDBparser(pdb_file, "", true);
-    if (atoms.empty()) {
-        throw std::runtime_error("No atoms loaded from PDB file");
-    }
-
-    vdw_radii_.SetRadius(atoms, probe_radius_);
-    SolveInteractions(atoms, 0);  // Mode 0 specific
-    SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
-    
-    return create_analysis_results(atoms, false);
-}
-
-// Generic dSASA (Mode 1)
-class GenericSASA {
-private:
-    float probe_radius_;
-    int cl_mode_;
-    VDWcontainer vdw_radii_;
-
-public:
-    GenericSASA(float probe_radius = 1.4f, int compute_mode = 0) 
-        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
-        vdw_radii_.GenPoints();
-    }
-    
-    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
-};
-
-py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {  
-    auto atoms = PDBparser(pdb_file, "", true);
-    if (atoms.empty()) {
-        throw std::runtime_error("No atoms loaded from PDB file");
-    }
-
-    vdw_radii_.SetRadius(atoms, probe_radius_);
-    
-    // Determine mode
-    int Imode = (chains.size() <= 1) ? 4 : 1;  // 4=Auto, 1=Manual
-
-    // Check for protein-only case
-    if (chains.size() <= 1) {
-        set<string> proteinChains;
-        for (const auto& atom: atoms) {
-            if (atom.MOL_TYPE == "PROTEIN") {
-                proteinChains.insert(atom.CHAIN);
-            } else {
-                proteinChains.clear();
-                break;
-            }
-        }
-        if (proteinChains.size() == 2) {
-            Imode = 5;  // Protein-protein mode
-        }
-    }
-
-    ChainSelector(chains, atoms);
-    Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, cl_mode_);
-    GeneratePairInteractionData(atoms);
-    
-    return create_analysis_results(atoms, true);
-}
-
-// Decoupled dSASA (Mode 4)
-class DecoupledSASA {
-private:
-    float probe_radius_;
-    int cl_mode_;
-    VDWcontainer vdw_radii_;
-
-public:
-    DecoupledSASA(float probe_radius = 1.4f, int compute_mode = 0) 
-        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
-        vdw_radii_.GenPoints();
-    }
-    
-    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
-};
-
-py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {
-    auto atoms = PDBparser(pdb_file, "", true);
-    if (atoms.empty()) {
-        throw std::runtime_error("No atoms loaded from PDB file");
-    }
-
-    vdw_radii_.SetRadius(atoms, probe_radius_);
-    
-    int Imode = (chains.size() <= 1) ? 2 : 3;  // 2=Molecular, 3=Chain
-
-    if (!chains.empty()) {
-        ChainSelector(chains, atoms);
-    }
-
-    SolveInteractions(atoms, Imode);
-    DecoupledSolver(atoms, vdw_radii_.Points);
-    
-    return create_analysis_results(atoms, true);
-}
-
-// Relative SASA (Mode 100)
-class RelSASA {
-private:
-    float probe_radius_;
-    int cl_mode_;
-    VDWcontainer vdw_radii_;
-
-public:
-    RelSASA(float probe_radius = 1.4f, int compute_mode = 0) 
-        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
-        vdw_radii_.GenPoints();
-    }
-    
-    py::dict calculate(const string& pdb_file);
-};
-
-py::dict RelSASA::calculate(const string& pdb_file) {
-    auto atoms = PDBparser(pdb_file, "", true);
-    if (atoms.empty()) {
-        throw std::runtime_error("No atoms loaded from PDB file");
-    }
-
-    vdw_radii_.SetRadius(atoms, probe_radius_);
-    SolveInteractions(atoms, 0);
-    SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
-    RelativeSASA(atoms);  // Additional step for relative SASA
-    
-    return create_analysis_results(atoms, false);
-}
-
-
 // Check SolverDataPorcessing for simplyfing this. 
 py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_matrix = true) {
     py::dict results;
@@ -354,6 +208,152 @@ py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_
 
     return results;
 }
+
+// Simple SASA (Mode 0)
+class SimpleSASA {
+private:
+    float probe_radius_;
+    int cl_mode_;
+    VDWcontainer vdw_radii_;
+
+public:
+    SimpleSASA(float probe_radius = 1.4f, int compute_mode = 0) 
+        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
+        vdw_radii_.GenPoints();
+    }
+    
+    py::dict calculate(const string& pdb_file);
+};
+
+py::dict SimpleSASA::calculate(const string& pdb_file) {
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw std::runtime_error("No atoms loaded from PDB file");
+    }
+
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    SolveInteractions(atoms, 0);  // Mode 0 specific
+    SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
+    
+    return create_analysis_results(atoms, false);
+}
+
+// Generic dSASA (Mode 1)
+class GenericSASA {
+private:
+    float probe_radius_;
+    int cl_mode_;
+    VDWcontainer vdw_radii_;
+
+public:
+    GenericSASA(float probe_radius = 1.4f, int compute_mode = 0) 
+        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
+        vdw_radii_.GenPoints();
+    }
+    
+    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
+};
+
+py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {  
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw std::runtime_error("No atoms loaded from PDB file");
+    }
+
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    
+    // Determine mode
+    int Imode = (chains.size() <= 1) ? 4 : 1;  // 4=Auto, 1=Manual
+
+    // Check for protein-only case
+    if (chains.size() <= 1) {
+        set<string> proteinChains;
+        for (const auto& atom: atoms) {
+            if (atom.MOL_TYPE == "PROTEIN") {
+                proteinChains.insert(atom.CHAIN);
+            } else {
+                proteinChains.clear();
+                break;
+            }
+        }
+        if (proteinChains.size() == 2) {
+            Imode = 5;  // Protein-protein mode
+        }
+    }
+
+    ChainSelector(chains, atoms);
+    Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, cl_mode_);
+    GeneratePairInteractionData(atoms);
+    
+    return create_analysis_results(atoms, true);
+}
+
+// Decoupled dSASA (Mode 4)
+class DecoupledSASA {
+private:
+    float probe_radius_;
+    int cl_mode_;
+    VDWcontainer vdw_radii_;
+
+public:
+    DecoupledSASA(float probe_radius = 1.4f, int compute_mode = 0) 
+        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
+        vdw_radii_.GenPoints();
+    }
+    
+    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
+};
+
+py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw std::runtime_error("No atoms loaded from PDB file");
+    }
+
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    
+    int Imode = (chains.size() <= 1) ? 2 : 3;  // 2=Molecular, 3=Chain
+
+    if (!chains.empty()) {
+        ChainSelector(chains, atoms);
+    }
+
+    SolveInteractions(atoms, Imode);
+    DecoupledSolver(atoms, vdw_radii_.Points);
+    
+    return create_analysis_results(atoms, true);
+}
+
+// Relative SASA (Mode 100)
+class RelSASA {
+private:
+    float probe_radius_;
+    int cl_mode_;
+    VDWcontainer vdw_radii_;
+
+public:
+    RelSASA(float probe_radius = 1.4f, int compute_mode = 0) 
+        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
+        vdw_radii_.GenPoints();
+    }
+    
+    py::dict calculate(const string& pdb_file);
+};
+
+py::dict RelSASA::calculate(const string& pdb_file) {
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw std::runtime_error("No atoms loaded from PDB file");
+    }
+
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    SolveInteractions(atoms, 0);
+    SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
+    RelativeSASA(atoms);  // Additional step for relative SASA
+    
+    return create_analysis_results(atoms, false);
+}
+
 
 // Module definition
 PYBIND11_MODULE(dr_sasa_py, m) {
