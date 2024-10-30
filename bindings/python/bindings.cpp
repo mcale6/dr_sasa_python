@@ -234,7 +234,6 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
             )
         );
     }
-
     return results;
 }
 
