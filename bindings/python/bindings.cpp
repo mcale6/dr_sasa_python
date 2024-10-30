@@ -76,7 +76,7 @@ extern void GenerateIntraBSAMatrix(vector<atom_struct>& pdb,
 static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;  // Water probe in Angstroms
 
 // Check SolverDataPorcessing and atom.struct for more information.  
-py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix = true) {
+py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix = false) {
     py::dict results;
     const size_t n_atoms = atoms.size();
 
@@ -330,21 +330,24 @@ public:
         vdw_radii_.GenPoints();
     }
     
-    py::dict calculate(const string& pdb_file, bool include_matrix = true);
+    py::dict calculate(const string& pdb_file);
 };
 
-py::dict SimpleSASA::calculate(const string& pdb_file, bool include_matrix) {
+py::dict SimpleSASA::calculate(const string& pdb_file) {
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
     }
-
     vdw_radii_.SetRadius(atoms, probe_radius_);
+    std::cerr.rdbuf(old_buf);
+
     SolveInteractions(atoms, 0);  // Mode 0 specific
     SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
     //PrintSASAResults(pdb,output);
     //PrintSplitAsaAtom(pdb,splitasa,atmasa_sasa);
-    return create_analysis_results(atoms, include_matrix);
+    return create_analysis_results(atoms); // include matrix false default
 }
 
 class GenericSASA {
@@ -371,7 +374,7 @@ py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& 
     }
     vdw_radii_.SetRadius(atoms, probe_radius_);
     std::cerr.rdbuf(old_buf);
-    
+
     int Imode;
     if (chains.size() <= 1) {
         set<string> proteinChains;
@@ -400,14 +403,13 @@ py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& 
 
     ChainSelector(chains, atoms);
     Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, cl_mode_);
-    cout << "After Generic_Solver - atoms with interactions: " 
-        << count_if(atoms.begin(), atoms.end(), 
-            [](const atom_struct& a) { return !a.INTERACTION_P.empty(); }) << "\n";
+    //cout << "After Generic_Solver - atoms with interactions: " 
+    //    << count_if(atoms.begin(), atoms.end(), 
+    //        [](const atom_struct& a) { return !a.INTERACTION_P.empty(); }) << "\n";
     GeneratePairInteractionData(atoms);
-    cout << "After GeneratePairInteractionData - atoms with contact areas: "
-     << count_if(atoms.begin(), atoms.end(),
-        [](const atom_struct& a) { return !a.CONTACT_AREA.empty(); }) << "\n";
-
+    //cout << "After GeneratePairInteractionData - atoms with contact areas: "
+    // << count_if(atoms.begin(), atoms.end(),
+    //    [](const atom_struct& a) { return !a.CONTACT_AREA.empty(); }) << "\n";
     return create_analysis_results(atoms, include_matrix);
 }
 
@@ -457,36 +459,7 @@ py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>
     return create_analysis_results(atoms, include_matrix);
 }
 
-
-// RelSASA class
-class RelSASA {
-private:
-    float probe_radius_;
-    int cl_mode_;
-    VDWcontainer vdw_radii_;
-
-public:
-    RelSASA(float probe_radius = 1.4f, int compute_mode = 0) 
-        : probe_radius_(probe_radius), cl_mode_(compute_mode) {
-        vdw_radii_.GenPoints();
-    }
-    
-    py::dict calculate(const string& pdb_file, bool include_matrix = false);
-};
-
-py::dict RelSASA::calculate(const string& pdb_file, bool include_matrix) {
-    auto atoms = PDBparser(pdb_file, "", true);
-    if (atoms.empty()) {
-        throw std::runtime_error("No atoms loaded from PDB file");
-    }
-
-    vdw_radii_.SetRadius(atoms, probe_radius_);
-    SolveInteractions(atoms, 0);
-    SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
-    RelativeSASA(atoms);  // Additional step for relative SASA
-    
-    return create_analysis_results(atoms, include_matrix);
-}
+// RelSASA class is wrong and removed
 
 // Module definition
 PYBIND11_MODULE(dr_sasa_py, m) {
@@ -499,11 +472,9 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              py::arg("compute_mode") = 0)
         .def("calculate", &SimpleSASA::calculate,
              py::arg("pdb_file"),
-             py::arg("include_matrix") = true, // remove this
              "Calculate simple SASA using mode 0.\n"
              "Args:\n"
              "    pdb_file: Path to PDB file\n"
-             "    include_matrix: Whether to include interaction matrices (default: True)\n"
              "Returns dict with SASA values, basic statistics, and optional matrices.");
 
     // Generic dSASA
@@ -571,29 +542,14 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              "Automatically determines mode (2=Molecular, 3=Chain).\n"
              "Returns dict with SASA values, contact matrices, and optional matrices.");
 
-    // Relative SASA (Mode 100)
-    py::class_<RelSASA>(m, "RelativeSASA")
-        .def(py::init<float, int>(),
-             py::arg("probe_radius") = 1.4f,
-             py::arg("compute_mode") = 0)
-        .def("calculate", &RelSASA::calculate,
-             py::arg("pdb_file"),
-             py::arg("include_matrix") = true,
-             "Calculate relative SASA using mode 100.\n"
-             "Args:\n"
-             "    pdb_file: Path to PDB file\n"
-             "    include_matrix: Whether to include interaction matrices (default: True)\n"
-             "Returns dict with SASA values, relative accessibility, and optional matrices.");
-
     // Convenience functions
     m.def("calculate_simple_sasa", 
-        [](const string& pdb_file, float probe_radius = 1.4f, bool include_matrix = true) {
+        [](const string& pdb_file, float probe_radius = 1.4f) {
             SimpleSASA calculator(probe_radius);
-            return calculator.calculate(pdb_file, include_matrix);
+            return calculator.calculate(pdb_file);
         }, 
         py::arg("pdb_file"), 
         py::arg("probe_radius") = 1.4f,
-        py::arg("include_matrix") = true,
         "Quick calculation of simple SASA (Mode 0)");
 
     m.def("calculate_delta_sasa", 
