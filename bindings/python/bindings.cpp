@@ -17,6 +17,8 @@
 #include "SetRadius.h"
 #include "SurfaceSolverCL.h"
 #include "SurfaceSolverOnTheFly.h"
+#include "histogram.h"
+#include "SolverDataProcessing.h"
 
 namespace py = pybind11;
 using namespace py::literals;  // Adds support for _a literal
@@ -35,7 +37,26 @@ extern void ChainSelector(vector<vector<string>>& selection, vector<atom_struct>
 extern void RelativeSASA(vector<atom_struct>& pdb);
 extern void GeneratePairInteractionData(vector<atom_struct>& pdb);
 extern void SolveInteractions(vector<atom_struct>& pdb, uint32 mode);
+// Matrix generation external functions
+extern void GenerateInterBSAMatrix(vector<atom_struct>& pdb,
+                                 map<vector<string>, vector<float>>& matrixIJatom,
+                                 map<vector<string>, vector<float>>& matrixIJres,
+                                 map<vector<string>, vector<string>>& COLatom,
+                                 map<vector<string>, vector<string>>& COLres, 
+                                 map<vector<string>, vector<string>>& ROWatom,
+                                 map<vector<string>, vector<string>>& ROWres,
+                                 map<vector<string>, vector<uint32>>& COLatomtype,
+                                 map<vector<string>, vector<uint32>>& ROWatomtype);
 
+extern void GenerateIntraBSAMatrix(vector<atom_struct>& pdb,
+                                 vector<float>& matrixIJatom,
+                                 vector<float>& matrixIJres,
+                                 vector<string>& COLatom,
+                                 vector<string>& COLres,
+                                 vector<string>& ROWatom,
+                                 vector<string>& ROWres,
+                                 vector<uint32>& COLatomtype,
+                                 vector<uint32>& ROWatomtype);
 // Additional useful external functions we might need later
 // GenerateInterBSAMatrix 
 // GenerateIntraBSAMatrix
@@ -43,10 +64,19 @@ extern void SolveInteractions(vector<atom_struct>& pdb, uint32 mode);
 // GeneratePDistribution
 // AddRawAtomxNucData
 
+// - SimpleSASA      (Mode 0)  # Basic SASA calculation
+// - GenericSASA     (Mode 1)  # Chain/molecular type interactions
+// - DecoupledSASA   (Mode 4)  # Decoupled interface analysis
+// - RelativeSASA    (Mode 100) # Relative accessibility
+
+// "Missing"
+// - Mode 2 (Residue dSASA) # returned in the dict handled by GenericSASA/DecoupledSASA
+// - Mode 3 (Atom dSASA)    # returned in the dicth andled by GenericSASA/DecoupledSASA
+
 static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;  // Water probe in Angstroms
 
 // Check SolverDataPorcessing for simplyfing this. 
-py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_matrix = true) {
+py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix = true) {
     py::dict results;
     const size_t n_atoms = atoms.size();
 
@@ -100,58 +130,9 @@ py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_
             coordinates.push_back(atom.COORDS[2]);
         }
     }
-
-    // 2. Molecular Type Analysis
-    map<string, double> sasa_by_mol_type;
-    map<string, size_t> atoms_by_type;
-    map<string, size_t> residues_by_type;
-    map<pair<string, string>, double> mol_type_contacts;
-    set<string> unique_mol_types;
-    set<string> unique_residues;
-
-    // 3. Interface Analysis
-    map<string, vector<size_t>> interface_atoms;
-    double total_interface_area = 0.0;
-    map<string, double> interface_by_chain;
-    double buried_surface_area = 0.0;
-
-    // Process atoms
-    for(size_t i = 0; i < n_atoms; ++i) {
-        const auto& atom = atoms[i];
-        string mol_type = atom.MOL_TYPE;
-        string res_key = atom.CHAIN + "_" + atom.RESN + "_" + std::to_string(atom.RESI);
-        
-        // Molecular type stats
-        sasa_by_mol_type[mol_type] += atom.SASA;
-        atoms_by_type[mol_type]++;
-        unique_mol_types.insert(mol_type);
-        unique_residues.insert(res_key);
-        residues_by_type[mol_type] = unique_residues.size();
-
-        // Interface analysis
-        if(atom.INT_NUM > 0) {  // If atom is at interface
-            interface_atoms[atom.CHAIN].push_back(i);
-            interface_by_chain[atom.CHAIN] += atom.EXT0;
-            total_interface_area += atom.EXT0;
-            buried_surface_area += (atom.AREA - atom.SASA);
-        }
-
-        // Process interactions and contact areas
-        for(const auto& interaction : atom.INTERACTION_P) {
-            const auto& partner = atoms[interaction];
-            auto type_pair = make_pair(
-                min(atom.MOL_TYPE, partner.MOL_TYPE),
-                max(atom.MOL_TYPE, partner.MOL_TYPE)
-            );
-            mol_type_contacts[type_pair] += 1; //atom.CONTACT_AREA[interaction]; not all mode have this
-        }
-    }
-
-    // 4. Coordinates as Nx3 array
     vector<ssize_t> coord_shape = {static_cast<ssize_t>(n_atoms), 3};
     vector<ssize_t> coord_strides = {3 * sizeof(float), sizeof(float)};
-    
-    // Pack all results
+    // Pack atom information
     results["atom_info"] = py::dict(
         "names"_a=atom_names,
         "elements"_a=elements,
@@ -165,12 +146,34 @@ py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_
         "atom_types"_a=py::array_t<int>(atom_types.size(), atom_types.data())
     );
 
+    // Add SASA results
+    map<string, double> sasa_by_mol_type;
+    for(const auto& atom : atoms) {
+        sasa_by_mol_type[atom.MOL_TYPE] += atom.SASA;
+    }
+
     results["sasa"] = py::dict(
         "values"_a=sasa,
         "delta"_a=dsasa,
         "relative"_a=rel_sasa,
         "by_mol_type"_a=sasa_by_mol_type
     );
+
+    // Interface Analysis
+    map<string, vector<size_t>> interface_atoms;
+    double total_interface_area = 0.0;
+    map<string, double> interface_by_chain;
+    double buried_surface_area = 0.0;
+
+    for(size_t i = 0; i < n_atoms; ++i) {
+        const auto& atom = atoms[i];
+        if(atom.INT_NUM > 0) {  // If atom is at interface
+            interface_atoms[atom.CHAIN].push_back(i);
+            interface_by_chain[atom.CHAIN] += atom.EXT0;
+            total_interface_area += atom.EXT0;
+            buried_surface_area += (atom.AREA - atom.SASA);
+        }
+    }
 
     results["interface"] = py::dict(
         "total_area"_a=total_interface_area,
@@ -179,37 +182,62 @@ py::dict create_analysis_results(const vector<atom_struct>& atoms, bool include_
         "atoms"_a=interface_atoms
     );
 
-    results["molecular"] = py::dict(
-        "atoms_by_type"_a=atoms_by_type,
-        "residues_by_type"_a=residues_by_type,
-        "type_contacts"_a=mol_type_contacts
-    );
+    // Add matrix results if requested
+    if(include_matrix && !atoms.empty()) {
+        // Matrix containers for inter-molecular results
+        map<vector<string>, vector<float>> matrixIJatom;
+        map<vector<string>, vector<float>> matrixIJres;
+        map<vector<string>, vector<string>> COLatom;
+        map<vector<string>, vector<string>> COLres;
+        map<vector<string>, vector<string>> ROWatom;
+        map<vector<string>, vector<string>> ROWres;
+        map<vector<string>, vector<uint32>> COLatomtype;
+        map<vector<string>, vector<uint32>> ROWatomtype;
 
-    // Include detailed interaction data if available
-    if(!atoms.empty() && !atoms[0].INTERACTION_P.empty()) {
-        map<pair<string, string>, vector<pair<size_t, size_t>>> interactions_by_type;
-        vector<double> interaction_energies;
-        
-        for(size_t i = 0; i < n_atoms; ++i) {
-            const auto& atom = atoms[i];
-            for(const auto& j : atom.INTERACTION_P) {
-                const auto& partner = atoms[j];
-                auto type_pair = make_pair(atom.MOL_TYPE, partner.MOL_TYPE);
-                interactions_by_type[type_pair].push_back({i, j});
-                interaction_energies.push_back(atom.ENERGY);
-            }
-        }
-        
-        results["interactions"] = py::dict(
-            "by_type"_a=interactions_by_type,
-            "energies"_a=py::array_t<double>(interaction_energies.size(), interaction_energies.data())
+        // Generate inter-molecular matrices
+        GenerateInterBSAMatrix(atoms, matrixIJatom, matrixIJres, 
+                             COLatom, COLres, ROWatom, ROWres,
+                             COLatomtype, ROWatomtype);
+
+        // Containers for intra-molecular results
+        vector<float> intraMatrixAtom;
+        vector<float> intraMatrixRes;
+        vector<string> intraColAtom;
+        vector<string> intraColRes;
+        vector<string> intraRowAtom;
+        vector<string> intraRowRes;
+        vector<uint32> intraColAtomType;
+        vector<uint32> intraRowAtomType;
+
+        // Generate intra-molecular matrices
+        GenerateIntraBSAMatrix(atoms, intraMatrixAtom, intraMatrixRes,
+                             intraColAtom, intraColRes, intraRowAtom, intraRowRes,
+                             intraColAtomType, intraRowAtomType);
+
+        // Add matrices to results
+        results["matrices"] = py::dict(
+            "inter_molecular"_a=py::dict(
+                "atomic"_a=matrixIJatom,
+                "residue"_a=matrixIJres,
+                "col_atoms"_a=COLatom,
+                "row_atoms"_a=ROWatom,
+                "col_types"_a=COLatomtype,
+                "row_types"_a=ROWatomtype
+            ),
+            "intra_molecular"_a=py::dict(
+                "atomic"_a=intraMatrixAtom,
+                "residue"_a=intraMatrixRes,
+                "col_atoms"_a=intraColAtom,
+                "row_atoms"_a=intraRowAtom,
+                "col_types"_a=intraColAtomType,
+                "row_types"_a=intraRowAtomType
+            )
         );
     }
 
     return results;
 }
 
-// Simple SASA (Mode 0)
 class SimpleSASA {
 private:
     float probe_radius_;
@@ -222,10 +250,10 @@ public:
         vdw_radii_.GenPoints();
     }
     
-    py::dict calculate(const string& pdb_file);
+    py::dict calculate(const string& pdb_file, bool include_matrix = true);
 };
 
-py::dict SimpleSASA::calculate(const string& pdb_file) {
+py::dict SimpleSASA::calculate(const string& pdb_file, bool include_matrix) {
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -235,10 +263,9 @@ py::dict SimpleSASA::calculate(const string& pdb_file) {
     SolveInteractions(atoms, 0);  // Mode 0 specific
     SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
     
-    return create_analysis_results(atoms, false);
+    return create_analysis_results(atoms, include_matrix);
 }
 
-// Generic dSASA (Mode 1)
 class GenericSASA {
 private:
     float probe_radius_;
@@ -251,10 +278,10 @@ public:
         vdw_radii_.GenPoints();
     }
     
-    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
+    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains, bool include_matrix = true);
 };
 
-py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {  
+py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& chains, bool include_matrix) {  
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -285,10 +312,10 @@ py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& 
     Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, cl_mode_);
     GeneratePairInteractionData(atoms);
     
-    return create_analysis_results(atoms, true);
+    return create_analysis_results(atoms, include_matrix);
 }
 
-// Decoupled dSASA (Mode 4)
+// DecoupledSASA class
 class DecoupledSASA {
 private:
     float probe_radius_;
@@ -301,10 +328,10 @@ public:
         vdw_radii_.GenPoints();
     }
     
-    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains);
+    py::dict calculate(const string& pdb_file, vector<vector<string>>& chains, bool include_matrix = true);
 };
 
-py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>& chains) {
+py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>& chains, bool include_matrix) {
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -321,10 +348,10 @@ py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>
     SolveInteractions(atoms, Imode);
     DecoupledSolver(atoms, vdw_radii_.Points);
     
-    return create_analysis_results(atoms, true);
+    return create_analysis_results(atoms, include_matrix);
 }
 
-// Relative SASA (Mode 100)
+// RelSASA class
 class RelSASA {
 private:
     float probe_radius_;
@@ -337,10 +364,10 @@ public:
         vdw_radii_.GenPoints();
     }
     
-    py::dict calculate(const string& pdb_file);
+    py::dict calculate(const string& pdb_file, bool include_matrix = false);
 };
 
-py::dict RelSASA::calculate(const string& pdb_file) {
+py::dict RelSASA::calculate(const string& pdb_file, bool include_matrix) {
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -351,9 +378,8 @@ py::dict RelSASA::calculate(const string& pdb_file) {
     SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
     RelativeSASA(atoms);  // Additional step for relative SASA
     
-    return create_analysis_results(atoms, false);
+    return create_analysis_results(atoms, include_matrix);
 }
-
 
 // Module definition
 PYBIND11_MODULE(dr_sasa_py, m) {
@@ -366,8 +392,12 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              py::arg("compute_mode") = 0)
         .def("calculate", &SimpleSASA::calculate,
              py::arg("pdb_file"),
+             py::arg("include_matrix") = true,
              "Calculate simple SASA using mode 0.\n"
-             "Returns dict with SASA values and basic statistics.");
+             "Args:\n"
+             "    pdb_file: Path to PDB file\n"
+             "    include_matrix: Whether to include interaction matrices (default: True)\n"
+             "Returns dict with SASA values, basic statistics, and optional matrices.");
 
     // Generic dSASA (Mode 1)
     py::class_<GenericSASA>(m, "GenericSASA")
@@ -377,9 +407,14 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         .def("calculate", &GenericSASA::calculate,
              py::arg("pdb_file"),
              py::arg("chains"),
+             py::arg("include_matrix") = true,
              "Calculate delta SASA between chain groups using mode 1.\n"
+             "Args:\n"
+             "    pdb_file: Path to PDB file\n"
+             "    chains: List of chain groups\n"
+             "    include_matrix: Whether to include interaction matrices (default: True)\n"
              "Automatically determines interaction mode (1=Manual, 4=Auto, 5=Protein-protein).\n"
-             "Returns dict with SASA values, interactions, and matrices.");
+             "Returns dict with SASA values, interactions, and optional matrices.");
 
     // Decoupled dSASA (Mode 4)
     py::class_<DecoupledSASA>(m, "DecoupledSASA")
@@ -389,9 +424,14 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         .def("calculate", &DecoupledSASA::calculate,
              py::arg("pdb_file"),
              py::arg("chains"),
+             py::arg("include_matrix") = true,
              "Calculate decoupled delta SASA using mode 4.\n"
+             "Args:\n"
+             "    pdb_file: Path to PDB file\n"
+             "    chains: List of chain groups\n"
+             "    include_matrix: Whether to include interaction matrices (default: True)\n"
              "Automatically determines mode (2=Molecular, 3=Chain).\n"
-             "Returns dict with SASA values and contact matrices.");
+             "Returns dict with SASA values, contact matrices, and optional matrices.");
 
     // Relative SASA (Mode 100)
     py::class_<RelSASA>(m, "RelativeSASA")
@@ -400,23 +440,37 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              py::arg("compute_mode") = 0)
         .def("calculate", &RelSASA::calculate,
              py::arg("pdb_file"),
+             py::arg("include_matrix") = true,
              "Calculate relative SASA using mode 100.\n"
-             "Returns dict with SASA values and relative accessibility.");
+             "Args:\n"
+             "    pdb_file: Path to PDB file\n"
+             "    include_matrix: Whether to include interaction matrices (default: True)\n"
+             "Returns dict with SASA values, relative accessibility, and optional matrices.");
 
     // Convenience functions
-    m.def("calculate_simple_sasa", [](const string& pdb_file, float probe_radius = 1.4f) {
-        SimpleSASA calculator(probe_radius);
-        return calculator.calculate(pdb_file);
-    }, py::arg("pdb_file"), py::arg("probe_radius") = 1.4f,
-    "Quick calculation of simple SASA (Mode 0)");
+    m.def("calculate_simple_sasa", 
+        [](const string& pdb_file, float probe_radius = 1.4f, bool include_matrix = true) {
+            SimpleSASA calculator(probe_radius);
+            return calculator.calculate(pdb_file, include_matrix);
+        }, 
+        py::arg("pdb_file"), 
+        py::arg("probe_radius") = 1.4f,
+        py::arg("include_matrix") = true,
+        "Quick calculation of simple SASA (Mode 0)");
 
-    m.def("calculate_delta_sasa", [](const string& pdb_file, 
-                                    vector<vector<string>>& chains,  // Non-const chains!
-                                    float probe_radius = 1.4f) {
-        GenericSASA calculator(probe_radius);
-        return calculator.calculate(pdb_file, chains);
-    }, py::arg("pdb_file"), py::arg("chains"), py::arg("probe_radius") = 1.4f,
-    "Quick calculation of delta SASA between chains (Mode 1)");
+    m.def("calculate_delta_sasa", 
+        [](const string& pdb_file, 
+           vector<vector<string>>& chains,  
+           float probe_radius = 1.4f,
+           bool include_matrix = true) {
+            GenericSASA calculator(probe_radius);
+            return calculator.calculate(pdb_file, chains, include_matrix);
+        }, 
+        py::arg("pdb_file"), 
+        py::arg("chains"), 
+        py::arg("probe_radius") = 1.4f,
+        py::arg("include_matrix") = true,
+        "Quick calculation of delta SASA between chains (Mode 1)");
 
     // Module info
     m.attr("__version__") = "0.5.0";

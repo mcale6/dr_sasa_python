@@ -2,7 +2,7 @@
 # Installation script for dr_sasa_python using a virtual environment
 set -e  # Exit on any error
 
-echo "Starting DR-SASA Python installation..."
+echo "Starting dr_sasa_python installation..."
 
 # 1. System updates and dependencies (if on a fresh VM)
 echo "Installing system dependencies..."
@@ -47,6 +47,10 @@ echo "Setting up environment..."
 INSTALL_PATH=$(pwd)/lib
 echo "export PYTHONPATH=\$PYTHONPATH:$INSTALL_PATH" >> ~/.bashrc
 
+# 8 Test import
+python tests/test_import.py
+
 # Add virtual environment activation to bashrc 
 echo "# DR-SASA Python Virtual Environment" >> ~/.bashrc
 echo "source ~/dr_sasa_venv/bin/activate" >> ~/.bashrc
+
