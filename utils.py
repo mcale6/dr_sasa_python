@@ -73,7 +73,18 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
             index=res_matrix['row_labels'],
             columns=res_matrix['col_labels']
         )
-    
+
+    # Add residue interaction DataFrame
+    if 'residue_interactions' in results:
+        ri = results['residue_interactions']
+        dfs['residue_interactions'] = pd.DataFrame({
+            'residue1': ri['residue1'],
+            'residue2': ri['residue2'],
+            'buried_area': ri['buried_area'],
+            'dsasa_res1': ri['dsasa_res1'],
+            'dsasa_res2': ri['dsasa_res2']
+        })
+        
     # Surface summary if present
     if 'surface_summary' in results:
         summary_data = []
