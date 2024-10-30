@@ -19,9 +19,11 @@
 #include "SurfaceSolverOnTheFly.h"
 #include "histogram.h"
 #include "SolverDataProcessing.h"
+//#include "interaction_analysis.h"  // Add the new header
 
 namespace py = pybind11;
-using namespace py::literals;  // Adds support for _a literal
+using namespace py::literals;
+//using namespace py::drsasa;
 
 using std::string;
 using std::vector;
@@ -37,31 +39,15 @@ extern void ChainSelector(vector<vector<string>>& selection, vector<atom_struct>
 extern void RelativeSASA(vector<atom_struct>& pdb);
 extern void GeneratePairInteractionData(vector<atom_struct>& pdb);
 extern void SolveInteractions(vector<atom_struct>& pdb, uint32 mode);
-// Matrix generation external functions
-extern void GenerateInterBSAMatrix(vector<atom_struct>& pdb,
-                                 map<vector<string>, vector<float>>& matrixIJatom,
-                                 map<vector<string>, vector<float>>& matrixIJres,
-                                 map<vector<string>, vector<string>>& COLatom,
-                                 map<vector<string>, vector<string>>& COLres, 
-                                 map<vector<string>, vector<string>>& ROWatom,
-                                 map<vector<string>, vector<string>>& ROWres,
-                                 map<vector<string>, vector<uint32>>& COLatomtype,
-                                 map<vector<string>, vector<uint32>>& ROWatomtype);
+extern void CalculateDNA_ProtInteractions(vector<atom_struct>& pdb, int mode);
 
-extern void GenerateIntraBSAMatrix(vector<atom_struct>& pdb,
-                                 vector<float>& matrixIJatom,
-                                 vector<float>& matrixIJres,
-                                 vector<string>& COLatom,
-                                 vector<string>& COLres,
-                                 vector<string>& ROWatom,
-                                 vector<string>& ROWres,
-                                 vector<uint32>& COLatomtype,
-                                 vector<uint32>& ROWatomtype);
 
+//extern void GenerateIntraBSAMatrix()
 // Additional useful external functions we might need later
-// GenerateInterBSAMatrix  for overlaps with CalculateDNA_ProtInteractions DNA /Prtoein?
-// GenerateIntraBSAMatrix for overlaps with CalculateDNA_ProtInteractions DNA /Prtoein?
-// PrintDNA_ProtResults for overlaps with CalculateDNA_ProtInteractions DNA /Prtoein?
+// GenerateInterBSAMatrix matrix from CalculateDNA_ProtInteractions DNA /Prtoein?
+// GenerateIntraBSAMatrix matrix from CalculateDNA_ProtInteractions DNA /Prtoein?
+// PrintDNA_ProtResults for overlaps from CalculateDNA_ProtInteractions DNA /Prtoein?
+// PrintDNA_ProtResultsByAtomMatrix matrix from CalculateDNA_ProtInteractions
 // GeneratePDistribution
 
 // - SimpleSASA      (Mode 0)  # Basic SASA calculation
@@ -75,7 +61,141 @@ extern void GenerateIntraBSAMatrix(vector<atom_struct>& pdb,
 
 static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;  // Water probe in Angstroms
 
-// Check SolverDataPorcessing and atom.struct for more information.  
+
+struct SurfaceSummary {
+    float complex_surface;      // Total surface in complex (same for both)
+    float buried_by_other;      // Surface buried by other chain
+    float buries_in_other;      // Surface this chain buries in other
+    float interface_area;       // Average of both buried surfaces
+    string object_id;          // Chain/object identifier
+};
+
+// Helper function to convert matrix data to numpy array with metadata
+py::dict create_matrix_dict(const vector<float>& matrix_data,
+                          const vector<string>& col_labels,
+                          const vector<string>& row_labels,
+                          size_t num_rows,
+                          size_t num_cols) {
+    // Create numpy array with proper shape
+    vector<ssize_t> shape = {(ssize_t)num_rows, (ssize_t)num_cols};
+    vector<ssize_t> strides = {(ssize_t)(num_cols * sizeof(float)), sizeof(float)};
+    
+    return py::dict(
+        "values"_a=py::array_t<float>(shape, strides, matrix_data.data()),
+        "row_labels"_a=row_labels,
+        "col_labels"_a=col_labels
+    );
+}
+
+py::dict calculate_interaction_data(vector<atom_struct>& pdb) {
+    // Get unique chains/objects
+    set<string> object_types;
+    for (auto& atom : pdb) {
+        object_types.insert(atom.STRUCT_TYPE);
+    }
+    vector<string> objs(object_types.begin(), object_types.end());
+
+    // Initialize surfaces tracking
+    float total_complex_surface = 0.0f;
+    map<pair<string, string>, float> buried_between_objects;
+    
+    // Build indices just like Print_MatrixInsideAtom
+    vector<string> atom_labels;
+    vector<string> atom_full_labels;
+    map<string, uint32_t> atom_map;
+    vector<string> res_labels;
+    map<string, uint32_t> res_map;
+
+    // First pass - collect labels and complex surface
+    for (auto& atom : pdb) {
+        total_complex_surface += atom.SASA;
+        string aID = atom.sID();
+        string rID = atom.rsID();
+        
+        stringstream atomtype;
+        atomtype << aID << "/" << atom.MOL_TYPE << "/" << atom.ATOM_TYPE;
+        
+        atom_labels.push_back(aID);
+        atom_full_labels.push_back(atomtype.str());
+        atom_map[aID] = atom_labels.size() - 1;
+        res_labels.push_back(rID);
+    }
+
+    // Process residue labels
+    sort(res_labels.begin(), res_labels.end());
+    res_labels.erase(unique(res_labels.begin(), res_labels.end()), res_labels.end());
+    for (uint32_t k = 0; k < res_labels.size(); ++k) {
+        res_map[res_labels[k]] = k;
+    }
+
+    // Initialize matrices
+    size_t num_atoms = atom_labels.size();
+    size_t num_residues = res_labels.size();
+    vector<float> atom_matrix(num_atoms * num_atoms, NAN);
+    vector<float> res_matrix(num_residues * num_residues, NAN);
+
+    // Now the overlap calculations should work because interactions are populated
+    for (uint32_t i = 0; i < pdb.size(); ++i) {
+        auto& atom = pdb[i];
+        string aID = atom.sID();
+        string rID = atom.rsID();
+
+        for (uint32_t pos : atom.INTERACTION_SASA_P) {
+            if (atom.STRUCT_TYPE != pdb[pos].STRUCT_TYPE) {
+                uint32_t col = atom_map[aID];
+                uint32_t line = atom_map[pdb[pos].sID()];
+                uint32_t col_res = res_map[rID];
+                uint32_t line_res = res_map[pdb[pos].rsID()];
+
+                uint64_t idx_atom = col + line * num_atoms;
+                uint64_t idx_res = col_res + line_res * num_residues;
+
+                if (std::isnan(atom_matrix[idx_atom])) atom_matrix[idx_atom] = 0.0;
+                if (std::isnan(res_matrix[idx_res])) res_matrix[idx_res] = 0.0;
+
+                for (uint32_t r = 0; r < atom.ov_table.size(); ++r) {
+                    const auto& ov = atom.ov_table[r];
+                    if (find(ov.begin(), ov.end(), pos) != ov.end()) {
+                        float area = atom.ov_norm_area[r];
+                        atom_matrix[idx_atom] += area;
+                        res_matrix[idx_res] += area;
+                        buried_between_objects[{atom.STRUCT_TYPE, pdb[pos].STRUCT_TYPE}] += area;
+                    }
+                }
+            }
+        }
+    }
+
+    // Create summaries
+    py::dict summary_dict;
+    for (const auto& obj_A : objs) {
+        for (const auto& obj_B : objs) {
+            if (obj_A != obj_B) {
+                float buried_by_other = buried_between_objects[{obj_A, obj_B}];
+                float buries_in_other = buried_between_objects[{obj_B, obj_A}];
+                float interface_area = (buried_by_other + buries_in_other) / 2.0f;
+
+                summary_dict[py::str(obj_A)] = py::dict(
+                    "complex_surface"_a=total_complex_surface,
+                    "buried_by_other"_a=buried_by_other,     // A<---B
+                    "buries_in_other"_a=buries_in_other,     // A--->B
+                    "interface_area"_a=interface_area         // Average
+                );
+            }
+        }
+    }
+
+    return py::dict(
+        "matrices"_a=py::dict(
+            "atom"_a=create_matrix_dict(atom_matrix, atom_full_labels, atom_full_labels, 
+                                      num_atoms, num_atoms),
+            "residue"_a=create_matrix_dict(res_matrix, res_labels, res_labels, 
+                                         num_residues, num_residues)
+        ),
+        "surface_summary"_a=summary_dict
+    );
+}
+
 py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix = false) {
     py::dict results;
     const size_t n_atoms = atoms.size();
@@ -192,8 +312,7 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         "radii"_a=radii,
         "radii2"_a=radii2,
         "vdw"_a=vdw,
-        "b_factors"_a=b_factors,
-        "charges"_a=charges
+        "b_factors"_a=b_factors
     );
 
     results["surface"] = py::dict( // not clear
@@ -222,29 +341,13 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         "normalized_areas"_a=normalized_overlap_areas
     );
 
-    if(include_matrix) {
-        // Matrix handling remains the same
-        map<vector<string>, vector<float>> matrixIJatom;
-        map<vector<string>, vector<float>> matrixIJres;
-        map<vector<string>, vector<string>> COLatom;
-        map<vector<string>, vector<string>> COLres;
-        map<vector<string>, vector<string>> ROWatom;
-        map<vector<string>, vector<string>> ROWres;
-        map<vector<string>, vector<uint32>> COLatomtype;
-        map<vector<string>, vector<uint32>> ROWatomtype;
-
-        GenerateInterBSAMatrix(atoms, matrixIJatom, matrixIJres,
-                             COLatom, COLres, ROWatom, ROWres,
-                             COLatomtype, ROWatomtype);
-
-        results["matrices"] = py::dict(
-            "atom_matrix"_a=matrixIJatom,
-            "residue_matrix"_a=matrixIJres,
-            "col_atoms"_a=COLatom,
-            "row_atoms"_a=ROWatom,
-            "col_types"_a=COLatomtype,
-            "row_types"_a=ROWatomtype
-        );
+    if (include_matrix) {
+        // Calculate interactions data once
+        auto interaction_data = calculate_interaction_data(atoms);
+        
+        // Extract both matrices and summary from the same calculation
+        results["matrices"] = interaction_data["matrices"];
+        results["surface_summary"] = interaction_data["surface_summary"];
     }
 
     return results;
@@ -339,6 +442,7 @@ py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& 
     //    << count_if(atoms.begin(), atoms.end(), 
     //        [](const atom_struct& a) { return !a.INTERACTION_P.empty(); }) << "\n";
     GeneratePairInteractionData(atoms);
+    CalculateDNA_ProtInteractions(atoms, cl_mode_);
     //cout << "After GeneratePairInteractionData - atoms with contact areas: "
     // << count_if(atoms.begin(), atoms.end(),
     //    [](const atom_struct& a) { return !a.CONTACT_AREA.empty(); }) << "\n";
