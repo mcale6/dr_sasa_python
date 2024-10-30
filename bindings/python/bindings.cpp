@@ -62,7 +62,7 @@ extern void GenerateIntraBSAMatrix(vector<atom_struct>& pdb,
 // GenerateInterBSAMatrix  for overlaps with CalculateDNA_ProtInteractions DNA /Prtoein?
 // GenerateIntraBSAMatrix for overlaps with CalculateDNA_ProtInteractions DNA /Prtoein?
 // PrintDNA_ProtResults for overlaps with CalculateDNA_ProtInteractions DNA /Prtoein?
-// GeneratePDistribution 
+// GeneratePDistribution
 
 // - SimpleSASA      (Mode 0)  # Basic SASA calculation
 // - GenericSASA     (Mode 1)  # Chain/molecular type interactions
@@ -81,16 +81,16 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
     const size_t n_atoms = atoms.size();
 
     // Basic atom info arrays
-    vector<string> structures, names, residues, chains, elements;
-    vector<string> struct_types, mol_types, altlocs, icodes, dtypes;
+    vector<string> residues, chains, elements;
+    vector<string> mol_types;
     vector<int> residue_nums, atom_ids;
-    vector<bool> is_hetatm, is_active, is_terminal;
-    vector<int> atom_types, atom_types_40, int_nums, ef_int_nums;
+    vector<bool> is_hetatm;
+    vector<int> atom_types;
     vector<int> polarity;
 
     // Geometric properties
     vector<float> coordinates, radii, radii2, vdw;
-    vector<float> occupancies, b_factors;
+    vector<float> b_factors;
     vector<string> charges;
     
     // Surface areas and volumes
@@ -100,26 +100,16 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
     auto ext1 = py::array_t<double>(n_atoms);
     auto accessible = py::array_t<double>(n_atoms);
     
-    // Energy terms
-    vector<float> energies, dd_energies, as_energies;
-    vector<float> cs_energies, sdd_energies, bsa_energies;
-
     // Interaction data 
     vector<vector<uint32_t>> interaction_atoms;
     vector<vector<uint32_t>> interaction_sasa_atoms;
     vector<map<uint32_t, float>> contact_areas;
-    vector<vector<float>> distances;
-    vector<vector<float>> dd_distances;
-    vector<bool> dd_interacting;
         
     // Buried area data
     vector<vector<vector<uint32_t>>> buried_by_atoms;
     vector<vector<uint32_t>> buried_by_atoms_valid;
     vector<vector<float>> buried_areas;
-    
-    // Bonded atoms
-    vector<vector<uint32_t>> bonded_atoms;
-    
+        
     // Overlap data
     vector<vector<vector<uint32_t>>> overlap_tables;
     vector<vector<float>> overlap_areas;
@@ -141,73 +131,40 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         
         for(size_t i = 0; i < n_atoms; ++i) {
             const auto& atom = atoms[i];
-            
             // Basic properties
-            structures.push_back(atom.STRUCTURE);
             atom_ids.push_back(i);
-            names.push_back(atom.NAME);
             residues.push_back(atom.RESN);
             chains.push_back(atom.CHAIN);
             elements.push_back(atom.ELEMENT);
-            struct_types.push_back(atom.STRUCT_TYPE);
             mol_types.push_back(atom.MOL_TYPE);
-            altlocs.push_back(atom.ALTLOC);
-            icodes.push_back(atom.iCODE);
             residue_nums.push_back(atom.RESI);
-            
             // Flags
             is_hetatm.push_back(atom.HETATM);
-            is_active.push_back(atom.ACTIVE);
-            is_terminal.push_back(atom.TERMINAL);
-            
             // Types
             atom_types.push_back(atom.ATOM_TYPE);
-            atom_types_40.push_back(atom.ATOM_TYPE_40);
-            int_nums.push_back(atom.INT_NUM);
-            ef_int_nums.push_back(atom.EF_INT_NUM);
-            dtypes.push_back(atom.DTYPE);
             polarity.push_back(atom.POLAR);
-            
             // Geometric properties
             coordinates.insert(coordinates.end(), atom.COORDS.begin(), atom.COORDS.end());
             radii.push_back(atom.RADIUS);
             radii2.push_back(atom.RADIUS2);
             vdw.push_back(atom.VDW);
-            occupancies.push_back(atom.OCCUPANCY);
             b_factors.push_back(atom.TFACTOR);
-            charges.push_back(atom.CHARGE);
-            
             // Surface areas
             sasa_ptr[i] = atom.SASA;
             area_ptr[i] = atom.AREA;
             ext0_ptr[i] = atom.EXT0;
             ext1_ptr[i] = atom.EXT1;
             acc_ptr[i] = atom.ACCESSIBLE_P;
-            
-            // Energy terms
-            energies.push_back(atom.ENERGY);
-            dd_energies.push_back(atom.DD_ENERGY);
-            as_energies.push_back(atom.AS_ENERGY);
-            cs_energies.push_back(atom.CS_ENERGY);
-            sdd_energies.push_back(atom.sDD_ENERGY);
-            bsa_energies.push_back(atom.BSA_ENERGY);
-            
+
             // Interaction data
             interaction_atoms.push_back(atom.INTERACTION_P);
             interaction_sasa_atoms.push_back(atom.INTERACTION_SASA_P);
             contact_areas.push_back(atom.CONTACT_AREA);
-            //distances.push_back(atom.DISTANCES);
-            //dd_distances.push_back(atom.DD_DISTANCES);
-            //dd_interacting.push_back(atom.DD_INTERACTING);
-            
-              
+
             // Buried area data
             buried_by_atoms.push_back(atom.AREA_BURIED_BY_ATOM_vector);
             buried_by_atoms_valid.push_back(atom.AREA_BURIED_BY_ATOM_vector_valid);
             buried_areas.push_back(atom.AREA_BURIED_BY_ATOM_area);
-            
-            // Bonded atoms
-            bonded_atoms.push_back(atom.BONDED);
             
             // Overlap data
             overlap_tables.push_back(atom.ov_table);
@@ -222,37 +179,24 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
 
     // Construct comprehensive results dictionary
     results["atoms"] = py::dict(
-        "structure"_a=structures,
         "ids"_a=atom_ids,
-        "names"_a=names,
         "residues"_a=residues,
         "chains"_a=chains,
         "elements"_a=elements,
-        "struct_types"_a=struct_types,
         "mol_types"_a=mol_types,
-        "altlocs"_a=altlocs,
-        "icodes"_a=icodes,
         "residue_numbers"_a=residue_nums,
         "is_hetatm"_a=is_hetatm,
-        "is_active"_a=is_active,
-        "is_terminal"_a=is_terminal,
         "atom_types"_a=atom_types,
-        "atom_types_40"_a=atom_types_40,
-        "int_nums"_a=int_nums,
-        "ef_int_nums"_a=ef_int_nums,
-        "dtypes"_a=dtypes,
         "polarity"_a=polarity,
         "coordinates"_a=py::array_t<float>(coord_shape, coord_strides, coordinates.data()),
         "radii"_a=radii,
         "radii2"_a=radii2,
         "vdw"_a=vdw,
-        "occupancies"_a=occupancies,
         "b_factors"_a=b_factors,
-        "charges"_a=charges,
-        "bonded"_a=bonded_atoms
+        "charges"_a=charges
     );
 
-    results["surface"] = py::dict(
+    results["surface"] = py::dict( // not clear
         "area"_a=area,
         "sasa"_a=sasa,
         "buried_area"_a=ext0,
@@ -260,22 +204,10 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         "accessible"_a=accessible
     );
 
-    results["energy"] = py::dict(
-        "total"_a=energies,
-        "dd"_a=dd_energies,
-        "as"_a=as_energies,
-        "cs"_a=cs_energies,
-        "sdd"_a=sdd_energies,
-        "bsa"_a=bsa_energies
-    );
-
     results["interactions"] = py::dict(
         "atoms"_a=interaction_atoms,
         "sasa_atoms"_a=interaction_sasa_atoms,
-        "contact_areas"_a=contact_areas,
-        "distances"_a=distances,
-        "dd_distances"_a=dd_distances,
-        "dd_interacting"_a=dd_interacting
+        "contact_areas"_a=contact_areas
     );
 
     results["buried_area"] = py::dict(
@@ -284,7 +216,7 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         "areas"_a=buried_areas
     );
 
-    results["overlaps"] = py::dict(
+    results["overlaps"] = py::dict( // not working
         "tables"_a=overlap_tables,
         "areas"_a=overlap_areas,
         "normalized_areas"_a=normalized_overlap_areas

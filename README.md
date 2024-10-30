@@ -1,6 +1,6 @@
-# DR_SASA Python Bindings
+# dr_sasa Python Bindings
 
-Python bindings for dr_sasa_n (Solvent Accessible Surface Area Calculator). If you use DR_SASA in your research, please cite: \
+Python bindings for dr_sasa_n (Solvent Accessible Surface Area Calculator). If you use dr_sasa_n in your research, please cite: \
 Ribeiro, J., Ríos-Vera, C., Melo, F. and Schüller, A. (2018) “Calculation of accurate contact surface areas between atoms for the quantitative analysis of non-bonded molecular interactions”. Bioinformatics
 
 ## Overview
@@ -25,7 +25,7 @@ dr_sasa is a high-performance tool for calculating Solvent Accessible Surface Ar
 
 ### Installation Steps
 
-Check install.sh
+Check install.sh \
 Under tests/run_dr_sasa_n.sh one can se example usage for the c++ code. (needs to be compiled on its own!)
 
 ## Usage
