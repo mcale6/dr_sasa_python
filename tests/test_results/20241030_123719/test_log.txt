@@ -1,0 +1,65 @@
+[2024-10-30 12:37:19] Starting DR_SASA tests with structure: /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:19] Testing Mode 0 - Simple SASA solver
+[2024-10-30 12:37:19] Running test: Basic SASA
+[2024-10-30 12:37:19] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 0 -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:19] Test completed successfully
+[2024-10-30 12:37:19] Running test: SASA probe 1.2
+[2024-10-30 12:37:19] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 0 -r 1.2 -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:19] Test completed successfully
+[2024-10-30 12:37:19] Running test: SASA chain A
+[2024-10-30 12:37:19] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 0 -chain A -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:19] Test completed successfully
+[2024-10-30 12:37:19] Testing Mode 1 - Delta SASA
+[2024-10-30 12:37:19] Running test: Auto mode
+[2024-10-30 12:37:19] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 1 -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:20] Test completed successfully
+[2024-10-30 12:37:20] Running test: Two chains
+[2024-10-30 12:37:20] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 1 -chain AB -chain CD -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:21] Test completed successfully
+[2024-10-30 12:37:21] Running test: No matrix
+[2024-10-30 12:37:21] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 1 -chain AB -nomatrix -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:22] Test completed successfully
+[2024-10-30 12:37:22] Testing Mode 2 - Residue dSASA
+[2024-10-30 12:37:22] Running test: Single chain
+[2024-10-30 12:37:22] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 2 -chain A -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:23] Test completed successfully
+[2024-10-30 12:37:23] Running test: Multiple chains
+[2024-10-30 12:37:23] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 2 -chain ABCD -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:25] Test completed successfully
+[2024-10-30 12:37:25] Testing Mode 3 - Atom dSASA
+[2024-10-30 12:37:25] Running test: Single chain
+[2024-10-30 12:37:25] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 3 -chain A -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:26] Test completed successfully
+[2024-10-30 12:37:26] Running test: Multiple chains
+[2024-10-30 12:37:26] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 3 -chain ABCD -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:28] Test completed successfully
+[2024-10-30 12:37:28] Testing Mode 4 - Contact surface
+[2024-10-30 12:37:28] Running test: Auto mode
+[2024-10-30 12:37:28] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 4 -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:28] Test completed successfully
+[2024-10-30 12:37:28] Running test: Specific chains
+[2024-10-30 12:37:28] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 4 -chain AB -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:29] Test completed successfully
+[2024-10-30 12:37:29] Testing Mode 100 - Relative SASA
+[2024-10-30 12:37:29] Running test: Basic relative
+[2024-10-30 12:37:29] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 100 -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:29] Test completed successfully
+[2024-10-30 12:37:29] Running test: Chain selection
+[2024-10-30 12:37:29] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 100 -chain A -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:29] Test completed successfully
+[2024-10-30 12:37:29] Testing Mode 106 - ASA by atom type
+[2024-10-30 12:37:29] Running test: Atom type analysis
+[2024-10-30 12:37:29] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 106 -chain A -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:29] Test failed! Check test_results/20241030_123719/mode106.out for details
+[2024-10-30 12:37:29] Testing additional flag combinations
+[2024-10-30 12:37:29] Running test: Molecular surface
+[2024-10-30 12:37:29] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 0 -r 0.0 -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:29] Test completed successfully
+[2024-10-30 12:37:29] Running test: Force reorder
+[2024-10-30 12:37:29] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 0 -force_reorder -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:30] Test completed successfully
+[2024-10-30 12:37:30] Running test: No HETATM
+[2024-10-30 12:37:30] Command: /home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa -m 0 -nohetatm -i /home/alessio/dr_sasa_python/tests/data/3i40.pdb
+[2024-10-30 12:37:30] Test completed successfully
+[2024-10-30 12:37:30] Testing completed. Results saved in test_results/20241030_123719
+[2024-10-30 12:37:30] See summary.txt for overview

@@ -1,0 +1,3 @@
+#dr_sasa v0.5
+/home/alessio/dr_sasa_python/tests/data/pred.pdb
+NO_VALID_ATOMS_IN_SELECTION	terminate called after throwing an instance of 'int'

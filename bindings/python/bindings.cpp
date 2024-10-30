@@ -75,7 +75,7 @@ extern void GenerateIntraBSAMatrix(vector<atom_struct>& pdb,
 
 static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;  // Water probe in Angstroms
 
-// Check SolverDataPorcessing for simplyfing this. 
+// Check SolverDataPorcessing and atom.struct for more information.  
 py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix = true) {
     py::dict results;
     const size_t n_atoms = atoms.size();
