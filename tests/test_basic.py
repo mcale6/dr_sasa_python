@@ -18,35 +18,49 @@ for build_path in build_paths:
         sys.path.append(str(build_path.absolute()))
         print(f"Added build path: {build_path.absolute()}")
 
+TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
 import dr_sasa_py
 
-def test_basic_sasa():
-    """Test basic SASA calculation with and without matrices"""
-    calc = dr_sasa_py.SimpleSASA(probe_radius=1.4)
-    test_pdb = os.path.join(os.path.dirname(__file__), "data", "3i40.pdb")
-    assert os.path.exists(test_pdb), f"Test PDB file not found: {test_pdb}"
+def test_generic_sasa_basic():
+    """Basic test of GenericSASA with default settings"""
+    # Initialize calculator
+    calculator = dr_sasa_py.GenericSASA(probe_radius=1.4)
     
-    # Test without matrices
-    results_no_matrix = calc.calculate(test_pdb, include_matrix=False)
-    assert 'matrices' not in results_no_matrix, "Matrices present when disabled"
-    
-    # Test with matrices
-    results = calc.calculate(test_pdb, include_matrix=True)
-    
-    # Basic checks
-    assert 'atom_info' in results, "Missing atom_info in results"
-    assert 'sasa' in results, "Missing sasa in results"
-    
-    # Matrix checks if present
-    if 'matrices' in results:
-        matrices = results['matrices']
-        assert 'inter_molecular' in matrices, "Missing inter-molecular matrices"
-        assert 'intra_molecular' in matrices, "Missing intra-molecular matrices"
+    pdb_path = os.path.join(TEST_DATA_DIR, "3i40.pdb")
+    if not os.path.exists(pdb_path):
+        pytest.skip(f"Test PDB file not found: {pdb_path}")
         
-        # Print matrix info
-        print("\nMatrix information:")
-        print(f"Inter-molecular matrices present: {list(matrices['inter_molecular'].keys())}")
-        print(f"Intra-molecular matrices present: {list(matrices['intra_molecular'].keys())}")
+    # Calculate with empty chains for automatic mode
+    results = calculator.calculate(pdb_path, chains=[], include_matrix=False)
+    
+    # Basic validation
+    assert isinstance(results, dict)
+    assert 'atoms' in results
+    assert 'surface' in results
+    assert 'interactions' in results
+
+def test_generic_sasa_advanced():
+    calculator = dr_sasa_py.GenericSASA(probe_radius=1.4)
+    
+    pdb_path = os.path.join(TEST_DATA_DIR, "3i40.pdb")
+    if not os.path.exists(pdb_path):
+        pytest.skip(f"Test PDB file not found: {pdb_path}")
+    
+    # Use simple string lists for chains
+    results = calculator.calculate(
+        pdb_path,
+        chains=[["A"], ["B"]],  # Simple nested list of strings
+        include_matrix=False
+    )
+    
+    # Alternative approach for automatic mode
+    #auto_results = calculator.calculate(pdb_path, include_matrix=True)
+    
+    
+    assert isinstance(results, dict)
+    assert 'surface' in results
+    assert np.sum(results['surface']['sasa']) > 0
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])

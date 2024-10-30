@@ -2,111 +2,116 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 
+
 def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
-   dfs = {}
-   
-   # Base atom dataframe
-   atom_info = results['atom_info']
-   coords = np.array(atom_info['coordinates'])
-   base_df = pd.DataFrame({
-       'name': atom_info['names'],
-       'element': atom_info['elements'],
-       'mol_type': atom_info['mol_types'],
-       'x': coords[:,0], 
-       'y': coords[:,1],
-       'z': coords[:,2],
-       'radius': atom_info['radii'],
-       'occupancy': atom_info['occupancies'],
-       'b_factor': atom_info['b_factors'],
-       'charge': atom_info['charges'],
-       'is_hetatm': atom_info['is_hetatm'],
-       'atom_type': atom_info['atom_types']
-   })
-   
-   # Add SASA data if present
-   if 'sasa' in results:
-       base_df['sasa'] = results['sasa']['values']
-       base_df['delta_sasa'] = results['sasa']['delta']
-       base_df['relative_sasa'] = results['sasa']['relative']
-       
-       dfs['sasa_by_type'] = pd.DataFrame([
-           {'mol_type': k, 'sasa': v} 
-           for k,v in results['sasa']['by_mol_type'].items()
-       ])
-       
-   dfs['atoms'] = base_df
+    dfs = {}
+    atom_info = results['atoms']
+    coords = np.array(atom_info['coordinates'])
+    # Base atom dataframe
+    base_df = pd.DataFrame({
+        'structure': atom_info['structure'],
+        'id': atom_info['ids'],
+        'name': atom_info['names'],
+        'residue': atom_info['residues'],
+        'chain': atom_info['chains'],
+        'element': atom_info['elements'],
+        'struct_type': atom_info['struct_types'],
+        'mol_type': atom_info['mol_types'],
+        'altloc': atom_info['altlocs'],
+        'icode': atom_info['icodes'],
+        'residue_number': atom_info['residue_numbers'],
+        'is_hetatm': atom_info['is_hetatm'],
+        'is_active': atom_info['is_active'],
+        'is_terminal': atom_info['is_terminal'],
+        'atom_type': atom_info['atom_types'],
+        'atom_type_40': atom_info['atom_types_40'],
+        'int_num': atom_info['int_nums'],
+        'ef_int_num': atom_info['ef_int_nums'],
+        'dtype': atom_info['dtypes'],
+        'polarity': atom_info['polarity'],
+        'x': coords[:,0],
+        'y': coords[:,1],
+        'z': coords[:,2],
+        'radius': atom_info['radii'],
+        'radius2': atom_info['radii2'],
+        'vdw': atom_info['vdw'],
+        'occupancy': atom_info['occupancies'],
+        'b_factor': atom_info['b_factors'],
+        'charge': atom_info['charges']
+    })
+    
+    # Surface area dataframe
+    dfs['surface'] = pd.DataFrame({
+        'area': results['surface']['area'],
+        'sasa': results['surface']['sasa'],
+        'buried_area': results['surface']['buried_area'],
+        'fast_dsasa': results['surface']['fast_dsasa'],
+        'accessible': results['surface']['accessible']
+    })
 
-   # Matrices if present
-   if 'matrices' in results:
-       matrices = results['matrices']
-       if 'inter_molecular' in matrices:
-           inter = matrices['inter_molecular']
-           for mol_type, matrix in inter['atomic'].items():
-               dfs[f'inter_matrix_{mol_type[0]}_{mol_type[1]}'] = pd.DataFrame(
-                   matrix,
-                   index=inter['row_atoms'][mol_type],
-                   columns=inter['col_atoms'][mol_type]
-               )
-               
-       if 'intra_molecular' in matrices:
-           intra = matrices['intra_molecular']
-           n = len(intra['col_atoms'])
-           dfs['intra_matrix'] = pd.DataFrame(
-               np.array(intra['atomic']).reshape(n,n),
-               index=intra['row_atoms'],
-               columns=intra['col_atoms']
-           )
-   
-   # Interface data if present
-   if 'interface' in results:
-       interface = results['interface']
-       dfs['interface'] = pd.DataFrame([{
-           'chain': chain,
-           'atom_index': idx,
-           'atom_name': base_df.iloc[idx]['name'],
-           'sasa': base_df.iloc[idx].get('sasa', None),
-           'delta_sasa': base_df.iloc[idx].get('delta_sasa', None)
-       } for chain, indices in interface['atoms'].items()
-         for idx in indices])
-           
-       dfs['interface_summary'] = pd.DataFrame([{
-           'total_area': interface['total_area'],
-           'buried_area': interface['buried_surface_area'],
-           **{f'chain_{k}_area': v for k,v in interface['by_chain'].items()}
-       }])
+    # Interaction data
+    interaction_data = []
+    for atom_idx, (interacting_atoms, sasa_atoms, contact_map) in enumerate(zip(
+            results['interactions']['atoms'],
+            results['interactions']['sasa_atoms'], 
+            results['interactions']['contact_areas'])):
+        
+        # Add each interaction for this atom
+        for interacting_atom in interacting_atoms:
+            interaction_data.append({
+                'atom_index': atom_idx,
+                'interacting_atom': interacting_atom,
+                'is_sasa_interaction': interacting_atom in sasa_atoms,
+                'contact_area': contact_map.get(interacting_atom, 0.0)
+            })
+    
+    if interaction_data:
+        dfs['interactions'] = pd.DataFrame(interaction_data)
 
-   return dfs
+    # Matrix handling if present (using ChainPair keys)
+    if 'matrices' in results:
+        for chain_pair, matrix in results['matrices']['atom_matrix'].items():
+            matrix_id = f"matrix_{chain_pair[0]}_{chain_pair[1]}"
+            dfs[matrix_id] = pd.DataFrame(
+                matrix,
+                index=results['matrices']['row_atoms'][chain_pair],
+                columns=results['matrices']['col_atoms'][chain_pair]
+            )
+
+    return dfs
 
 def get_analysis_summary(dfs: Dict[str, pd.DataFrame]) -> str:
-    summary = dfs['summary'].iloc[0]
-    mol_comp = dfs['molecular_composition']
+    atoms_df = dfs['atoms']
     
-    analysis = f"""Analysis Summary:
-    
-Structure Overview:
-- Total atoms: {summary['total_atoms']:,}
-- Molecular types: {summary['molecular_types']}
+    summary = f"""Analysis Summary:
 
-Molecular Composition:
-{mol_comp.to_string(index=False)}
+Structure Overview:
+- Total atoms: {len(atoms_df):,}
+- Molecular types: {', '.join(atoms_df['mol_type'].unique())}
+- Chains: {', '.join(atoms_df['chain'].unique())}
 
 Surface Analysis:
-- Total SASA: {summary['total_sasa']:.1f} Å²
-- Mean atom SASA: {summary['mean_sasa']:.1f} Å²
-- Total interface area: {summary['total_interface_area']:.1f} Å²
-- Buried surface area: {summary['buried_surface_area']:.1f} Å²
-- Interface atoms: {summary['interface_atoms']:,}
+- Total area: {atoms_df['area'].sum():.1f} Å²
+- Total SASA: {atoms_df['sasa'].sum():.1f} Å²
+- Total buried area: {atoms_df['buried_area'].sum():.1f} Å²
+- Mean accessibility: {atoms_df['accessible'].mean():.1%}
 
-Interface by Chain:
-{dfs['interface_by_chain'].to_string(index=False)}
+Energy Analysis:
+- Total energy: {atoms_df['energy'].sum():.1f}
+- Mean DD energy: {atoms_df['dd_energy'].mean():.2f}
+- Mean BSA energy: {atoms_df['bsa_energy'].mean():.2f}
 
-Type Contacts:
-{dfs['type_contacts'].to_string(index=False)}
+Interaction Statistics:
+- Interacting atoms: {len(dfs['interactions']):,}
+- Mean contact area: {dfs['interactions']['contact_area'].mean():.1f} Å²
+- Total overlap groups: {len(dfs['overlaps']):,}
+- Mean overlap area: {dfs['overlaps']['overlap_area'].mean():.1f} Å²
+
+Surface Analysis by Molecular Type:
+{atoms_df.groupby('mol_type').agg({
+    'sasa': 'sum',
+    'buried_area': 'sum',
+    'accessible': 'mean'
+}).round(1)}
 """
-    
-    if 'interactions' in dfs:
-        analysis += f"\nInteractions:\n"
-        analysis += f"- Total interactions: {summary['total_interactions']:,}\n"
-        analysis += f"- Mean interaction energy: {dfs['interactions']['energy'].mean():.2f}\n"
-    
-    return analysis
+    return summary
