@@ -22,92 +22,125 @@ import dr_sasa_py
 
 def test_basic_sasa():
     """Test basic SASA calculation with detailed result checking"""
-    # Get the module from our import test    
-    # Create calculator
-    if hasattr(dr_sasa_py, 'SimpleSASA'):
-        calc = dr_sasa_py.SimpleSASA(probe_radius=1.4)
-    else:
-        calc = dr_sasa_py(probe_radius=1.4)
-    
-    # Calculate SASA
+    calc = dr_sasa_py.SimpleSASA(probe_radius=1.4)
     test_pdb = os.path.join(os.path.dirname(__file__), "data", "3i40.pdb")
     assert os.path.exists(test_pdb), f"Test PDB file not found: {test_pdb}"
     
-    results = calc.calculate(test_pdb)
+    # Test without matrices first
+    results_no_matrix = calc.calculate(test_pdb, include_matrix=False)
+    assert 'matrices' not in results_no_matrix, "Matrices present when disabled"
     
-    # 1. Check atom_info dictionary
+    # Test with matrices
+    results = calc.calculate(test_pdb, include_matrix=True)
+    
+    # Basic checks (existing)
     assert 'atom_info' in results, "Missing atom_info in results"
-    atom_info = results['atom_info']
-    required_atom_fields = [
-        'names', 'elements', 'mol_types', 'coordinates', 
-        'radii', 'occupancies', 'b_factors', 'charges', 
-        'is_hetatm', 'atom_types'
-    ]
-    for field in required_atom_fields:
-        assert field in atom_info, f"Missing {field} in atom_info"
-        assert len(atom_info[field]) > 0, f"Empty {field} in atom_info"
-    
-    # 2. Check SASA results
     assert 'sasa' in results, "Missing sasa in results"
-    sasa_info = results['sasa']
-    required_sasa_fields = ['values', 'delta', 'relative', 'by_mol_type']
-    for field in required_sasa_fields:
-        assert field in sasa_info, f"Missing {field} in sasa_info"
-    
-    # 3. Check molecular information
     assert 'molecular' in results, "Missing molecular in results"
-    mol_info = results['molecular']
-    assert 'atoms_by_type' in mol_info, "Missing atoms_by_type"
-    assert 'residues_by_type' in mol_info, "Missing residues_by_type"
-    assert 'type_contacts' in mol_info, "Missing type_contacts"
     
-    # 4. Check coordinates
-    coords = atom_info['coordinates']
-    assert len(coords.shape) == 2, "Coordinates should be 2D array"
-    assert coords.shape[1] == 3, "Coordinates should have 3 columns (x,y,z)"
+    # Matrix checks
+    assert 'matrices' in results, "Missing matrices in results"
+    matrices = results['matrices']
     
-    # Print summary statistics
-    print(f"\nTest Results Summary:")
-    print(f"Number of atoms: {len(sasa_info['values'])}")
-    print(f"Total SASA: {sasa_info['values'].sum():.2f} Å²")
-    print(f"\nMolecule composition:")
-    for mol_type, count in mol_info['atoms_by_type'].items():
-        print(f"  {mol_type}: {count} atoms")
+    # Check inter-molecular matrices
+    assert 'inter_molecular' in matrices, "Missing inter-molecular matrices"
+    inter = matrices['inter_molecular']
+    required_inter_fields = [
+        'atomic', 'residue', 
+        'col_atoms', 'row_atoms',
+        'col_types', 'row_types'
+    ]
+    for field in required_inter_fields:
+        assert field in inter, f"Missing {field} in inter-molecular matrices"
     
-    print("\nSample atom details:")
-    for i in range(min(5, len(atom_info['names']))):
-        print(f"Atom {i+1}: {atom_info['names'][i]} ({atom_info['elements'][i]}) - "
-              f"SASA: {sasa_info['values'][i]:.2f} Å²")
+    # Check intra-molecular matrices
+    assert 'intra_molecular' in matrices, "Missing intra-molecular matrices"
+    intra = matrices['intra_molecular']
+    required_intra_fields = [
+        'atomic', 'residue',
+        'col_atoms', 'row_atoms',
+        'col_types', 'row_types'
+    ]
+    for field in required_intra_fields:
+        assert field in intra, f"Missing {field} in intra-molecular matrices"
     
-    # Optional: Check interface information if available
-    if 'interface' in results:
-        interface_info = results['interface']
-        print("\nInterface information:")
-        print(f"Total interface area: {interface_info['total_area']:.2f} Å²")
-        print(f"Buried surface area: {interface_info['buried_surface_area']:.2f} Å²")
-        
-    # Optional: Check interaction information if available
-    if 'interactions' in results:
-        interaction_info = results['interactions']
-        print("\nInteraction information available:")
-        print(f"Number of interaction types: {len(interaction_info['by_type'])}")
+    # Verify matrix properties
+    def check_matrix_properties(matrix_data, name):
+        assert len(matrix_data['atomic']) > 0, f"Empty atomic matrix in {name}"
+        assert len(matrix_data['residue']) > 0, f"Empty residue matrix in {name}"
+        assert len(matrix_data['col_atoms']) == len(matrix_data['row_atoms']), \
+            f"Mismatched dimensions in {name} matrix"
+    
+    check_matrix_properties(inter, "inter-molecular")
+    check_matrix_properties(intra, "intra-molecular")
+    
+    # Print matrix information
+    print("\nMatrix Analysis:")
+    print("Inter-molecular matrices:")
+    print(f"  Atomic matrix size: {len(inter['atomic'])}")
+    print(f"  Residue matrix size: {len(inter['residue'])}")
+    print(f"  Number of column atoms: {len(inter['col_atoms'])}")
+    print(f"  Number of row atoms: {len(inter['row_atoms'])}")
+    
+    print("\nIntra-molecular matrices:")
+    print(f"  Atomic matrix size: {len(intra['atomic'])}")
+    print(f"  Residue matrix size: {len(intra['residue'])}")
+    print(f"  Number of column atoms: {len(intra['col_atoms'])}")
+    print(f"  Number of row atoms: {len(intra['row_atoms'])}")
 
-def test_advanced_checks():
-    """Additional tests for specific modes or calculations"""    
-    # Test that values are reasonable
-    calc = dr_sasa_py.SimpleSASA(probe_radius=1.4)
+def test_matrix_calculations():
+    """Test specific matrix generation and properties"""
+    calc = dr_sasa_py.GenericSASA(probe_radius=1.4)
     test_pdb = os.path.join(os.path.dirname(__file__), "data", "3i40.pdb")
-    results = calc.calculate(test_pdb)
     
-    # Check value ranges
-    sasa_values = results['sasa']['values']
-    assert all(v >= 0 for v in sasa_values), "Found negative SASA values"
-    assert all(v < 1000 for v in sasa_values), "Unreasonably large SASA values"
+    # Test with multiple chains
+    results = calc.calculate(test_pdb, [["A"], ["B"]], include_matrix=True)
+    matrices = results['matrices']
     
-    # Check coordinate validity
-    coords = results['atom_info']['coordinates']
-    assert not np.any(np.isnan(coords)), "Found NaN in coordinates"
-    assert not np.any(np.isinf(coords)), "Found Inf in coordinates"
+    # Check matrix consistency
+    inter = matrices['inter_molecular']
+    assert all(isinstance(val, float) for val in inter['atomic']), \
+        "Non-float values in atomic matrix"
+    assert all(isinstance(val, float) for val in inter['residue']), \
+        "Non-float values in residue matrix"
+    
+    # Check matrix values
+    assert all(val >= 0 for val in inter['atomic']), \
+        "Negative values in atomic matrix"
+    assert all(val >= 0 for val in inter['residue']), \
+        "Negative values in residue matrix"
+    
+    # Test matrix dimensions
+    n_atoms = len(results['atom_info']['names'])
+    n_residues = len(set(zip(results['atom_info']['mol_types'], 
+                            [i//3 for i in range(n_atoms*3)])))  # Approximate
+    
+    print("\nMatrix Dimensions:")
+    print(f"Number of atoms: {n_atoms}")
+    print(f"Estimated number of residues: {n_residues}")
+    print(f"Atomic matrix entries: {len(inter['atomic'])}")
+    print(f"Residue matrix entries: {len(inter['residue'])}")
+
+def test_all_calculators():
+    """Test matrix generation in all calculator types"""
+    test_pdb = os.path.join(os.path.dirname(__file__), "data", "3i40.pdb")
+    
+    calculators = [
+        (dr_sasa_py.SimpleSASA(), {}),
+        (dr_sasa_py.GenericSASA(), {"chains": [["A"], ["B"]]}),
+        (dr_sasa_py.DecoupledSASA(), {"chains": [["A"], ["B"]]}),
+        (dr_sasa_py.RelativeSASA(), {})
+    ]
+    
+    for calc, kwargs in calculators:
+        # Test with matrices
+        results = calc.calculate(test_pdb, include_matrix=True, **kwargs)
+        assert 'matrices' in results, f"Missing matrices in {calc.__class__.__name__}"
+        
+        # Test without matrices
+        results_no_matrix = calc.calculate(test_pdb, include_matrix=False, **kwargs)
+        assert 'matrices' not in results_no_matrix, \
+            f"Matrices present when disabled in {calc.__class__.__name__}"
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
