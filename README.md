@@ -1,4 +1,4 @@
-# dr_sasa_n Python Bindings
+# Python Bindings for dr_sasa_n
 
 Python bindings for dr_sasa_n (Solvent Accessible Surface Area Calculator). If you use dr_sasa_n in your research, please cite: \
 Ribeiro, J., Ríos-Vera, C., Melo, F. and Schüller, A. (2018) “Calculation of accurate contact surface areas between atoms for the quantitative analysis of non-bonded molecular interactions”. Bioinformatics
@@ -9,16 +9,16 @@ dr_sasa_n is a high-performance tool for calculating Solvent Accessible Surface 
 - Works on linux system with openmp. 
 - Minimal Python/C++ boundary crossing using pybinding11
 - Uses memory access with NumPy arrays (maybe there is a better method)
-- In progress: file writing and saving as option
 
+- In progress: file writing and saving as option
 - In progress: Supports OpenCL/Cude acceleration 
 - In progress: asa, interaction, overlaps and bsa table 
-- In progress: result_dict() matrix geenration still has some problems.
+- In progress: matrix is inconsistent, problem with indexing
 
 ## Installation
 
 ### Requirements
-- Python 3.7+
+- Python 3.8+
 - NumPy
 - A C++17 compatible compiler
 - CMake 3.15+
@@ -26,15 +26,9 @@ dr_sasa_n is a high-performance tool for calculating Solvent Accessible Surface 
 
 ### Installation Steps
 
-Check install.sh \
-Under tests/run_dr_sasa_n.sh one can se example usage for the c++ code. (needs to be compiled on its own!)
+Check install.sh
 
-## Usage
-
-### Available Modes
-# dr_sasa_n Python Bindings
-
-Python bindings for dr_sasa (Solvent Accessible Surface Area Calculator)
+# Available Modes
 
 ## Class Structure with pybindigs
 
@@ -58,11 +52,11 @@ calculator = GenericSASA(probe_radius=1.4, compute_mode=0)
 # - Mode 4: Automatic (single chain group)
 # - Mode 1: Manual (multiple chain groups)
 # - Mode 5: Protein-protein (exactly two protein chains)
-result = calculator.calculate("complex.pdb", chains=[["A"], ["B"]], include_matrix=false)
+result = calculator.calculate("complex.pdb", chains=[["A"], ["B"]], include_matrix=True)
 ```
 
 ### 3. DecoupledSASA
-Calculates contact surfaces between molecular components. 
+Calculates contact surfaces between molecular components. Not tested.
 ```python
 from dr_sasa_py import DecoupledSASA
 
@@ -73,14 +67,6 @@ calculator = DecoupledSASA(probe_radius=1.4, compute_mode=0)
 result = calculator.calculate("complex.pdb", chains=[["A", "B"]])
 ```
 
-### 4. RelativeSASA
-Calculates relative accessibility compared to reference state.
-```python
-from dr_sasa_py import RelativeSASA
-
-calculator = RelativeSASA(probe_radius=1.4, compute_mode=0)
-result = calculator.calculate("protein.pdb")
-```
 ## Notes
 
 | Measurement | Mathematical Formula | Description |
@@ -93,36 +79,29 @@ result = calculator.calculate("protein.pdb")
 | dSASA (Delta SASA) | dSASA = SASA(isolated) - SASA(complex) | Difference in accessible surface area between isolated and complexed states. |
 
 
-Key Differences:
 
-1. Raw Buried Area (ov_table_area):
-- Direct measurement of buried surface
-- Not normalized for multiple atom overlaps
-- Sum of all buried areas may exceed total surface area
-
-2. Normalized Area (ov_norm_area):
+ Normalized Area (ov_norm_area):
 - Buried area divided by number of atoms in overlap
 - Prevents double-counting in multi-atom contacts
 - Gives fair distribution of burial contribution
 
-3. Contact Surface:
+Contact Surface:
 - Bidirectional measure of atom interaction
 - Sum of normalized contributions from both atoms
 - Used for interface analysis
+- Sum of CSA_ij atom = BSA
 
 4. dSASA:
 - Global measure of burial upon complexation
 - Accounts for all changes in accessibility
 - Used for binding interface analysis
 
-
 Critical Point: Contact Surfaces are ASYMMETRIC!
 - contact(A->B) ≠ contact(B->A)
 - Example:
   * A large atom contacting a small atom
   * A might lose 30Å² of surface area due to contact with B
-  * While B might only lose 15Å² of surface area due to contact with A
-  * This asymmetry is important for understanding interface geometry
+  * While B might only lose 15Å² of surface area due to contact with A.
 
 This asymmetry is why the interaction matrices in the code are not symmetric:
 ```cpp
@@ -138,12 +117,7 @@ This is exactly why the code outputs two separate .tsv files for interactions:
 
 ## Result Structure
 
-All calculations return a dictionary with the following structure:
-
-### 1. Atom Information
-```python
-
-```
+Check utils.py to see what results are returned.
 
 ## Example Analysis
 
