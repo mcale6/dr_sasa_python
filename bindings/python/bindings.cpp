@@ -280,7 +280,7 @@ public:
     py::dict calculate(const string& pdb_file, vector<vector<string>>& chains, bool include_matrix = true);
 };
 
-py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& chains, bool include_matrix) {  
+py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& chains, bool include_matrix) {
     auto atoms = PDBparser(pdb_file, "", true);
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
@@ -288,11 +288,20 @@ py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& 
 
     vdw_radii_.SetRadius(atoms, probe_radius_);
     
-    // Determine mode
-    int Imode = (chains.size() <= 1) ? 4 : 1;  // 4=Auto, 1=Manual
+    // Convert Python tuple/list into proper C++ vector format
+    vector<vector<string>> cpp_chains;
+    for (const auto& chain_group : chains) {
+        vector<string> group;
+        for (const auto& chain : chain_group) {
+            group.push_back(string(chain));
+        }
+        cpp_chains.push_back(group);
+    }
+    
+    int Imode = (cpp_chains.size() <= 1) ? 4 : 1;  // 4=Auto, 1=Manual
 
     // Check for protein-only case
-    if (chains.size() <= 1) {
+    if (cpp_chains.size() <= 1) {
         set<string> proteinChains;
         for (const auto& atom: atoms) {
             if (atom.MOL_TYPE == "PROTEIN") {
@@ -307,8 +316,8 @@ py::dict GenericSASA::calculate(const string& pdb_file, vector<vector<string>>& 
         }
     }
 
-    ChainSelector(chains, atoms);
-    Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, cl_mode_);
+    ChainSelector(cpp_chains, atoms);
+    Generic_Solver(atoms, vdw_radii_.Points, cpp_chains, Imode, cl_mode_);
     GeneratePairInteractionData(atoms);
     
     return create_analysis_results(atoms, include_matrix);
@@ -338,10 +347,20 @@ py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>
 
     vdw_radii_.SetRadius(atoms, probe_radius_);
     
-    int Imode = (chains.size() <= 1) ? 2 : 3;  // 2=Molecular, 3=Chain
+    // Convert Python tuple/list into proper C++ vector format
+    vector<vector<string>> cpp_chains;
+    for (const auto& chain_group : chains) {
+        vector<string> group;
+        for (const auto& chain : chain_group) {
+            group.push_back(string(chain));
+        }
+        cpp_chains.push_back(group);
+    }
+    
+    int Imode = (cpp_chains.size() <= 1) ? 2 : 3;  // 2=Molecular, 3=Chain
 
-    if (!chains.empty()) {
-        ChainSelector(chains, atoms);
+    if (!cpp_chains.empty()) {
+        ChainSelector(cpp_chains, atoms);
     }
 
     SolveInteractions(atoms, Imode);
@@ -349,6 +368,7 @@ py::dict DecoupledSASA::calculate(const string& pdb_file, vector<vector<string>>
     
     return create_analysis_results(atoms, include_matrix);
 }
+
 
 // RelSASA class
 class RelSASA {
@@ -405,7 +425,7 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              py::arg("compute_mode") = 0)
         .def("calculate", &GenericSASA::calculate,
              py::arg("pdb_file"),
-             py::arg("chains"),
+             py::arg("chains") = vector<vector<string>>(),  // Default empty vector
              py::arg("include_matrix") = true,
              "Calculate delta SASA between chain groups using mode 1.\n"
              "Args:\n"
@@ -422,7 +442,7 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              py::arg("compute_mode") = 0)
         .def("calculate", &DecoupledSASA::calculate,
              py::arg("pdb_file"),
-             py::arg("chains"),
+             py::arg("chains") = vector<vector<string>>(),  // Default empty vector
              py::arg("include_matrix") = true,
              "Calculate decoupled delta SASA using mode 4.\n"
              "Args:\n"
