@@ -41,13 +41,15 @@ extern void GeneratePairInteractionData(vector<atom_struct>& pdb);
 extern void SolveInteractions(vector<atom_struct>& pdb, uint32 mode);
 extern void CalculateDNA_ProtInteractions(vector<atom_struct>& pdb, int mode);
 
-//extern void GenerateIntraBSAMatrix()
 // Additional useful external functions we might need later
-// GenerateInterBSAMatrix matrix from CalculateDNA_ProtInteractions DNA /Prtoein?
-// GenerateIntraBSAMatrix matrix from CalculateDNA_ProtInteractions DNA /Prtoein?
+// GenerateInterBSAMatrix 
+// GenerateIntraBSAMatrix 
+// GeneratePDistribution 
+
+// differences? add per atom interactions
 // PrintDNA_ProtResults for overlaps from CalculateDNA_ProtInteractions DNA /Prtoein?
 // PrintDNA_ProtResultsByAtomMatrix matrix from CalculateDNA_ProtInteractions
-// GeneratePDistribution
+// PrintDNA_ProtInteractions ?
 
 // - SimpleSASA      (Mode 0)  # Basic SASA calculation
 // - GenericSASA     (Mode 1)  # Chain/molecular type interactions
@@ -126,7 +128,7 @@ py::dict calculate_interaction_data(vector<atom_struct>& pdb) {
         res_map[res_labels[k]] = k;
     }
 
-    // Initialize matrices
+    // Initialize matrices -> PrintDNA_ProtResultsByAtomMatrix
     size_t num_atoms = atom_labels.size();
     size_t num_residues = res_labels.size();
     vector<float> atom_matrix(num_atoms * num_atoms, NAN);
@@ -248,6 +250,89 @@ py::dict calculate_interaction_data(vector<atom_struct>& pdb) {
         residue_interactions["dsasa_res2"].cast<py::list>().append(dsasa_res2[i]);
     }
 
+    // Atom interaction analysis
+    vector<pair<int,int>> atom_pairs;
+    vector<float> atom_buried_areas;
+    vector<float> dsasa_atom1;
+    vector<float> dsasa_atom2;
+
+    // Track processed atom pairs
+    vector<pair<uint32,uint32>> processed_atom_pairs;
+    map<int, float> atom_dsasa;
+    map<pair<int,int>, float> atom_contacts;
+
+    // Calculate atom dSASA and contacts
+    for (uint32_t i = 0; i < pdb.size(); ++i) {
+        auto& atom_i = pdb[i];
+        if (!atom_i.ACTIVE || atom_i.EXT1 == 0) continue;
+        
+        // Add to atom's total dSASA
+        atom_dsasa[atom_i.ID] = atom_i.EXT1;
+
+        // Process interactions
+        for (uint32_t j = 0; j < atom_i.INTERACTION_SASA_P.size(); ++j) {
+            auto j_pos = atom_i.INTERACTION_SASA_P[j];
+            auto& atom_j = pdb[j_pos];
+            
+            pair<uint32_t,uint32_t> p1(i, j_pos);
+            pair<uint32_t,uint32_t> p2(j_pos, i);
+            
+            if (!atom_j.ACTIVE || atom_j.EXT1 == 0) continue;
+            if (find(processed_atom_pairs.begin(), processed_atom_pairs.end(), p1) != processed_atom_pairs.end() ||
+                find(processed_atom_pairs.begin(), processed_atom_pairs.end(), p2) != processed_atom_pairs.end()) {
+                continue;
+            }
+
+            processed_atom_pairs.push_back(p1);
+            processed_atom_pairs.push_back(p2);
+
+            // Get contact areas in both directions
+            float ji = atom_i.CONTACT_AREA.count(atom_j.ID) ? 
+                    atom_i.CONTACT_AREA.at(atom_j.ID) : 0.0;
+            float ij = atom_j.CONTACT_AREA.count(atom_i.ID) ? 
+                    atom_j.CONTACT_AREA.at(atom_i.ID) : 0.0;
+
+            // Store atom contact data
+            auto atom_pair_ij = make_pair(atom_i.ID, atom_j.ID);
+            auto atom_pair_ji = make_pair(atom_j.ID, atom_i.ID);
+            
+            if (atom_contacts.count(atom_pair_ij) == 0) atom_contacts[atom_pair_ij] = 0.0;
+            if (atom_contacts.count(atom_pair_ji) == 0) atom_contacts[atom_pair_ji] = 0.0;
+            
+            atom_contacts[atom_pair_ij] += ji;
+            atom_contacts[atom_pair_ji] += ij;
+        }
+    }
+
+    // Convert to vectors for Python
+    for (const auto& contact : atom_contacts) {
+        const auto& atom_pair = contact.first;
+        float buried_area = contact.second;
+        
+        atom_pairs.push_back(atom_pair);
+        atom_buried_areas.push_back(buried_area);
+        dsasa_atom1.push_back(atom_dsasa[atom_pair.first]);
+        dsasa_atom2.push_back(atom_dsasa[atom_pair.second]);
+    }
+
+    // Create atom interaction dictionary
+    py::dict atom_interactions = py::dict(
+        "atom1_id"_a=py::list(),
+        "atom2_id"_a=py::list(),
+        "buried_area"_a=py::list(),
+        "dsasa_atom1"_a=py::list(),
+        "dsasa_atom2"_a=py::list()
+    );
+
+    // Fill the lists
+    for (size_t i = 0; i < atom_pairs.size(); ++i) {
+        atom_interactions["atom1_id"].cast<py::list>().append(atom_pairs[i].first);
+        atom_interactions["atom2_id"].cast<py::list>().append(atom_pairs[i].second);
+        atom_interactions["buried_area"].cast<py::list>().append(atom_buried_areas[i]);
+        atom_interactions["dsasa_atom1"].cast<py::list>().append(dsasa_atom1[i]);
+        atom_interactions["dsasa_atom2"].cast<py::list>().append(dsasa_atom2[i]);
+    }
+
     // Create summaries
     py::dict summary_dict;
     for (const auto& obj_A : objs) {
@@ -275,7 +360,9 @@ py::dict calculate_interaction_data(vector<atom_struct>& pdb) {
                                          num_residues, num_residues)
         ),
         "surface_summary"_a=summary_dict,
-        "residue_interactions"_a=residue_interactions
+        "residue_interactions"_a=residue_interactions,
+        "atom_interactions"_a=atom_interactions
+
     );
 }
 
@@ -398,7 +485,7 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         "b_factors"_a=b_factors
     );
 
-    results["surface"] = py::dict( // not clear
+    results["surface"] = py::dict( // not clear needs fix
         "area"_a=area,
         "sasa"_a=sasa,
         "buried_area"_a=ext0,
@@ -418,7 +505,7 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         "areas"_a=buried_areas
     );
 
-    results["overlaps"] = py::dict( // not working
+    results["overlaps"] = py::dict( // excluded in uttils
         "tables"_a=overlap_tables,
         "areas"_a=overlap_areas,
         "normalized_areas"_a=normalized_overlap_areas
@@ -432,6 +519,8 @@ py::dict create_analysis_results(vector<atom_struct>& atoms, bool include_matrix
         results["matrices"] = interaction_data["matrices"];
         results["surface_summary"] = interaction_data["surface_summary"];
         results["residue_interactions"] = interaction_data["residue_interactions"];
+        results["atom_interactions"] = interaction_data["atom_interactions"];
+
     }
 
     return results;

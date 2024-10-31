@@ -84,7 +84,17 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
             'dsasa_res1': ri['dsasa_res1'],
             'dsasa_res2': ri['dsasa_res2']
         })
-        
+    
+    if 'atom_interactions' in results:
+        ai = results['atom_interactions']
+        dfs['atom_interactions'] = pd.DataFrame({
+            'atom1_id': ai['atom1_id'],
+            'atom2_id': ai['atom2_id'],
+            'buried_area': ai['buried_area'],
+            'dsasa_atom1': ai['dsasa_atom1'],
+            'dsasa_atom2': ai['dsasa_atom2']
+        })
+
     # Surface summary if present
     if 'surface_summary' in results:
         summary_data = []

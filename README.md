@@ -33,7 +33,7 @@ Check install.sh
 ## Class Structure with pybindigs
 
 ### 1. SimpleSASA
-Basic SASA calculator for single structures.
+Basic SASA calculator for single/complex structures.
 compute_mode = 1 for gpu support, not supported yet.
 ```python
 from dr_sasa_py import SimpleSASA
@@ -43,7 +43,7 @@ result = calculator.calculate("protein.pdb")
 ```
 
 ### 2. GenericSASA
-Calculates delta SASA between chain groups with automatic mode detection.
+Calculates delta SASA between chain groups with automatic mode detection. For protein chains <=2 use this.
 ```python
 from dr_sasa_py import GenericSASA
 
@@ -56,7 +56,7 @@ result = calculator.calculate("complex.pdb", chains=[["A"], ["B"]], include_matr
 ```
 
 ### 3. DecoupledSASA
-Calculates contact surfaces between molecular components. Not tested.
+Calculates contact surfaces between molecular components. When more chains involved are involved. (not tested)
 ```python
 from dr_sasa_py import DecoupledSASA
 
@@ -64,7 +64,7 @@ calculator = DecoupledSASA(probe_radius=1.4, compute_mode=0)
 # Modes automatically selected:
 # - Mode 2: Molecular contacts
 # - Mode 3: Chain contacts
-result = calculator.calculate("complex.pdb", chains=[["A", "B"]])
+result = calculator.calculate("complex.pdb", chains=[["AB", "CD"]])
 ```
 
 ## Notes

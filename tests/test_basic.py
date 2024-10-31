@@ -51,11 +51,8 @@ def test_generic_sasa_advanced():
     results = calculator.calculate(
         pdb_path,
         chains=[["A"], ["B"]],  # Simple nested list of strings
-        include_matrix=False
+        include_matrix=True
     )
-    
-    # Alternative approach for automatic mode
-    #auto_results = calculator.calculate(pdb_path, include_matrix=True)
     
     
     assert isinstance(results, dict)
