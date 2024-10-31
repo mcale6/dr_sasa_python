@@ -9,11 +9,12 @@ dr_sasa_n is a high-performance tool for calculating Solvent Accessible Surface 
 - Works on linux system with openmp. 
 - Minimal Python/C++ boundary crossing using pybinding11
 - Uses memory access with NumPy arrays (maybe there is a better method)
-
-- In progress: file writing and saving as option
-- In progress: Supports OpenCL/Cude acceleration 
-- In progress: asa, interaction, overlaps and bsa table 
-- In progress: matrix is inconsistent, problem with indexing
+In progress:
+- file writing and saving as option
+- Supports OpenCL/Cude acceleration 
+- asa result table, check surface, overlaps results and add to utils. with atomidx.
+- distribution analysis and inter/intra bsa matrix
+- matrix is inconsistent, problem with indexing, might not be needed can be created separatly.
 
 ## Installation
 
@@ -49,7 +50,7 @@ from dr_sasa_py import GenericSASA
 
 calculator = GenericSASA(probe_radius=1.4, compute_mode=0)
 # Modes automatically selected:
-# - Mode 4: Automatic (single chain group)
+# (- Mode 4: Automatic (single chain group) not needed)
 # - Mode 1: Manual (multiple chain groups)
 # - Mode 5: Protein-protein (exactly two protein chains)
 result = calculator.calculate("complex.pdb", chains=[["A"], ["B"]], include_matrix=True)
