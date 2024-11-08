@@ -2,21 +2,6 @@ import pytest
 import os, sys
 from pathlib import Path
 
-# Try different potential build paths
-build_paths = [
-    Path("build/lib"),
-    Path("build/lib.linux-x86_64-cpython-310"),  
-    Path("build/lib.linux-x86_64-3.10"),         
-    Path("build/lib.macosx-10.9-x86_64-3.10"),   
-    Path("build"),                               
-]
-
-# Add all potential paths
-for build_path in build_paths:
-    if build_path.exists():
-        sys.path.append(str(build_path.absolute()))
-        print(f"Added build path: {build_path.absolute()}")
-
 def test_import():
     """Test different ways to import the module"""
     import_methods = []
