@@ -5,7 +5,7 @@ import numpy as np
 from typing import List, Optional, Dict, Any
 
 import dr_sasa_py
-from structure_parser import StructureData, parse_pdb_file, superimpose_structures
+from bindings.python.utils.structure_parser import *
 
 # Constants
 TEST_DATA_DIR = Path(__file__).parent / "data"

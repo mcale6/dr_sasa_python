@@ -1,4 +1,5 @@
 #include "atom_bindings.hpp"
+#include "utils.hpp"
 
 namespace py = pybind11;
 
@@ -54,6 +55,27 @@ void bind_atom_struct(py::module& m) {
                     coords[2].cast<float>()
                 };
                 a.COORDS = new_coords;
+            })
+        .def_property("COORDS",
+            [](const atom_struct& a) {
+                return py::array_t<float>({3}, a.COORDS.data());
+            },
+            [](atom_struct& a, py::array_t<float> array) {
+                if (array.size() != 3) {
+                    throw std::runtime_error("Coordinates must be length 3");
+                }
+                a.COORDS = numpy_to_vector(array);
+            })
+                .def_property_readonly("contacts",
+            [](const atom_struct& a) {
+                return conversion::atom_contacts_to_dict(a);
+            })
+        .def_property_readonly("interaction_partners",
+            [](const atom_struct& a) {
+                return py::array_t<uint32_t>(
+                    a.INTERACTION_SASA_P.size(),
+                    a.INTERACTION_SASA_P.data()
+                );
             })
         .def_readwrite("VDW", &atom_struct::VDW)                 // Van der Waals radius
         .def_readwrite("AREA", &atom_struct::AREA)               // Surface area

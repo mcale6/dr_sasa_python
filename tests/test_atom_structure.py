@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import dr_sasa_py as sasa
-from structure_parser import StructureData, parse_pdb_file, superimpose_structures
+from bindings.python.utils.structure_parser import StructureData, parse_pdb_file, superimpose_structures
 
 # Test data
 @pytest.fixture
