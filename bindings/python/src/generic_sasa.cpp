@@ -2,7 +2,7 @@
 #include "utils.hpp"
 
 GenericSASA::GenericSASA(float probe_radius, int compute_mode) 
-    : probe_radius_(probe_radius), cl_mode_(compute_mode) {
+    : probe_radius_(probe_radius), cl_mode_(compute_mode) {s
     vdw_radii_.GenPoints();
 }
 

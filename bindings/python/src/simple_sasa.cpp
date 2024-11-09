@@ -42,7 +42,7 @@ py::dict SimpleSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
         output << output_name;
         
         PrintSASAResults(atoms, output.str());
-        PrintSplitAsaAtom(atoms, output.str(), 0);
+        PrintSplitAsaAtom(atoms, output.str(), 0); // PrintSASAResults_per_type
         
         results["printed_output"] = output.str();
     }

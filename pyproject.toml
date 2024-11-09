@@ -23,6 +23,7 @@ dependencies = [
     "pandas>=2.1.0",
     "pybind11>=2.6.0",
     "pytest>=7.0.0",
+    "pytest-cov>=4.1.0",  # Added for coverage reports
     "ipykernel",
     "notebook"
 ]
@@ -30,3 +31,43 @@ dependencies = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+markers = [
+    "basic: Basic functionality tests",
+    "calculation: SASA calculation tests",
+    "advanced: Advanced feature tests",
+    "output: Output generation tests"
+]
+addopts = [
+    "--verbose",
+    "-ra",  # Show extra test summary info for all except passed tests
+    "--strict-markers",  # Ensure all markers are registered
+    "--import-mode=importlib"  # More reliable import behavior
+]
+
+[tool.coverage.run]
+source = ["dr_sasa_py"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError"
+]
+show_missing = true
+fail_under = 70  # Minimum code coverage percentage required
+
+[tool.coverage.html]
+directory = "coverage_html"
+
+[tool.poetry.scripts]
+test = "pytest"
+test-basic = "pytest -v -m basic"
+test-calc = "pytest -v -m calculation"
+test-advanced = "pytest -v -m advanced"
+test-output = "pytest -v -m output"
+test-cov = "pytest --cov=dr_sasa_py --cov-report=html"
