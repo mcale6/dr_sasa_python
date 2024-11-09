@@ -23,25 +23,63 @@ dependencies = [
     "pandas>=2.1.0",
     "pybind11>=2.6.0",
     "pytest>=7.0.0",
-    "pytest-cov>=4.1.0",  # Added for coverage reports
+    "pytest-cov>=4.1.0",
     "ipykernel",
     "notebook"
 ]
 
 [tool.pytest.ini_options]
+# Test discovery and execution
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Markers
 markers = [
     "basic: Basic functionality tests",
     "calculation: SASA calculation tests",
     "advanced: Advanced feature tests",
     "output: Output generation tests"
 ]
+
+# Test running options
 addopts = [
     "--verbose",
-    "-ra",  # Show extra test summary info for all except passed tests
-    "--strict-markers",  # Ensure all markers are registered
-    "--import-mode=importlib"  # More reliable import behavior
+    "-ra",
+    "--strict-markers",
+    "--import-mode=importlib"
+]
+
+# Environment variables for testing
+env = [
+    "PYTHONPATH=${PYTHONPATH}:build/lib",
+    "DEBUG=0"  # Set to 1 to enable debug output
+]
+
+# Custom test settings
+test_paths = [
+    "build/lib",
+    "build",
+    "build/lib.*"
+]
+
+# Configure where to find the conftest.py
+confcutdir = "tests"
+
+[tool.pytest.env]
+# Environment-specific library paths
+linux = [
+    "build/lib.linux-x86_64-*",
+    "build/lib.linux-*"
+]
+darwin = [
+    "build/lib.macosx-*",
+    "build/lib.darwin-*"
+]
+windows = [
+    "build/lib.win-*",
+    "build/lib.windows-*"
 ]
 
 [tool.coverage.run]
@@ -59,10 +97,20 @@ exclude_lines = [
     "raise ImportError"
 ]
 show_missing = true
-fail_under = 70  # Minimum code coverage percentage required
+fail_under = 70
 
 [tool.coverage.html]
 directory = "coverage_html"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.1.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "flake8>=4.0.0"
+]
 
 [tool.poetry.scripts]
 test = "pytest"
@@ -71,3 +119,9 @@ test-calc = "pytest -v -m calculation"
 test-advanced = "pytest -v -m advanced"
 test-output = "pytest -v -m output"
 test-cov = "pytest --cov=dr_sasa_py --cov-report=html"
+
+# Custom configuration for library path handling
+[tool.dr_sasa.build]
+debug_output = false  # Set to true to enable path debugging
+library_name = "dr_sasa_py"
+build_dir = "build"

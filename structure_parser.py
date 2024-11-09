@@ -3,6 +3,8 @@ from pathlib import Path
 import warnings
 from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
+import sys
+sys.path.append(str("/home/alessio/dr_sasa_python/build/lib"))
 import dr_sasa_py as sasa
 
 # PDB standard chain IDs

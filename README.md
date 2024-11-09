@@ -1,127 +1,128 @@
-# Python Bindings for dr_sasa_n
+# Python Bindings for dr_sasa_n (unofficial)
 
-Python bindings for dr_sasa_n (Solvent Accessible Surface Area Calculator). If you use dr_sasa_n in your research, please cite: \
-Ribeiro, J., Ríos-Vera, C., Melo, F. and Schüller, A. (2018) “Calculation of accurate contact surface areas between atoms for the quantitative analysis of non-bonded molecular interactions”. Bioinformatics
+Python bindings for dr_sasa_n (Solvent Accessible Surface Area Calculator). If you use dr_sasa_n in your research, please cite:  
+Ribeiro, J., Ríos-Vera, C., Melo, F. and Schüller, A. (2018) "Calculation of accurate contact surface areas between atoms for the quantitative analysis of non-bonded molecular interactions". Bioinformatics
 
 ## Overview
-dr_sasa_n is a high-performance tool for calculating Solvent Accessible Surface Area (SASA). +
 
-- Works on linux system with openmp. 
-- Minimal Python/C++ boundary crossing using pybinding11
-- Uses memory access with NumPy arrays (maybe there is a better method)
-In progress:
-- file writing and saving as option
-- Supports OpenCL/Cude acceleration 
-- asa result table, check surface, overlaps results and add to utils. with atomidx.
-- distribution analysis and inter/intra bsa matrix
-- matrix is inconsistent, problem with indexing, might not be needed can be created separatly.
+dr_sasa_n is a high-performance tool for calculating Solvent Accessible Surface Area (SASA) with the following features:
 
-## Installation
+### Current Features
+- High-performance SASA calculations on Linux systems with OpenMP support
+- Efficient Python/C++ interface using pybind11
+- NumPy-based memory management
+- Multiple calculation modes for different analysis needs
+
+### In Development
+- Optional file I/O handling
+- OpenCL/CUDA acceleration support
+- Refined inter/intra BSA matrix calculations
+- Comprehensive contact surface analysis
 
 ### Requirements
 - Python 3.8+
 - NumPy
-- A C++17 compatible compiler
+- C++17 compatible compiler
 - CMake 3.15+
-- pybinding11
+- pybind11
 
-### Installation Steps
+### Important Notes
 
-Check install.sh
+| Measurement        | Formula                                                                                           | Description                         |
+|-------------------|---------------------------------------------------------------------------------------------------|-------------------------------------|
+| **SASA**          | $$\text{SASA(atom)} = \sum(\text{accessible points}) \times \text{point\_area}$$                   | Basic measure of exposed surface     |
+| **Buried Area**   | $$\text{AREA}_{\text{buried}}(i,j) = \text{SASA}(i_{\text{alone}}) - \text{SASA}(i_{\text{complex}})$$ | Raw buried area between atoms        |
+| **Normalized Area**| $$\text{AREA}_{\text{norm}}(i) = \frac{\text{AREA}_{\text{buried}}(i)}{N_{\text{atoms}}}$$        | Burial normalized by contact atoms   |
+| **Contact Surface**| $$\text{CS}(A \rightarrow B) = \text{AREA}_{\text{norm}}(A)$$                                     | Directional measure of burial        |
+| **Delta SASA**    | $$\Delta \text{SASA} = \text{SASA}(\text{isolated}) - \text{SASA}(\text{complex})$$               | Total burial upon complexation       |
+ 
 
-# Available Modes
+ **Asymmetric Contacts**: Contact surfaces are inherently asymmetric - CS(A→B) ≠ CS(B→A) 
+ - Example: Large atom contacting small atom * A might lose 30Å² contacting B * B might only lose 15Å² contacting A 2. 
+ 
+ **Result Files**: 
+ - `*.asa.pdb`: PDB with SASA values in B-factor column 
+ - `*.atmasa`: Detailed atom-by-atom analysis 
+ - `*_vs_*.tsv`: Contact matrices between chains 
+ - `*.overlaps`: Detailed overlap information
 
-## Class Structure with pybindigs
+### Quick Install
+```bash
+# Clone repository
+git clone https://github.com/username/dr_sasa_python.git
+cd dr_sasa_python
 
-### 1. SimpleSASA
-Basic SASA calculator for single/complex structures.
-compute_mode = 1 for gpu support, not supported yet.
+# Install using provided script
+./install.sh
+```
+
+## 1. SimpleSASA
+Basic SASA calculator for single structures or complexes.
+
 ```python
 from dr_sasa_py import SimpleSASA
 
-calculator = SimpleSASA(probe_radius=1.4, compute_mode=0) 
-result = calculator.calculate("protein.pdb")
+# Initialize calculator
+calculator = SimpleSASA(
+    probe_radius=1.4,  # Water probe radius in Angstroms
+    compute_mode=0     # CPU mode (GPU support coming soon)
+)
+
+# Calculate SASA
+results = calculator.calculate(
+    "protein.pdb",
+    print_output=True,      # Generate detailed output files
+    output_name="results"   # Base name for output files
+)
+
+# Access results
+for atom_id, atom_data in results.items():
+    print(f"Atom {atom_id}: SASA = {atom_data['sasa']:.2f} Å²")
 ```
 
-### 2. GenericSASA
-Calculates delta SASA between chain groups with automatic mode detection. For protein chains <=2 use this.
+
+## 2. GenericSASA
+Advanced calculator for analyzing interactions between chain groups.
+
 ```python
 from dr_sasa_py import GenericSASA
 
-calculator = GenericSASA(probe_radius=1.4, compute_mode=0)
-# Modes automatically selected:
-# (- Mode 4: Automatic (single chain group) not needed)
-# - Mode 1: Manual (multiple chain groups)
-# - Mode 5: Protein-protein (exactly two protein chains)
-result = calculator.calculate("complex.pdb", chains=[["A"], ["B"]], include_matrix=True)
+# Initialize calculator
+calculator = GenericSASA(probe_radius=1.4)
+
+# Calculate with chain selection
+results = calculator.calculate(
+    "complex.pdb",
+    chains=[["A"], ["B"]],  # Analyze chains A and B
+    include_matrix=True     # Generate interaction matrices
+)
+
+# Analyze chain interactions
+for atom_id, atom_data in results.items():
+    if atom_data['contacts']:
+        print(f"\nAtom {atom_id} ({atom_data['chain']}) contacts:")
+        for contact_id, contact_info in atom_data['contacts'].items():
+            print(f"  - Contact with {contact_id}: {contact_info['contact_area']:.2f} Å²")
 ```
 
-### 3. DecoupledSASA
-Calculates contact surfaces between molecular components. When more chains involved are involved. (not tested)
+## 3. DecoupledSASA
+Specialized calculator for complex molecular assemblies.
+
 ```python
 from dr_sasa_py import DecoupledSASA
 
-calculator = DecoupledSASA(probe_radius=1.4, compute_mode=0)
-# Modes automatically selected:
-# - Mode 2: Molecular contacts
-# - Mode 3: Chain contacts
-result = calculator.calculate("complex.pdb", chains=[["AB", "CD"]])
+# Initialize calculator
+calculator = DecoupledSASA(probe_radius=1.4)
+
+# Calculate with multiple chain groups
+results = calculator.calculate(
+    "complex.pdb",
+    chains=[["A", "B"], ["C", "D"]],  # Analyze AB vs CD interactions
+    include_matrix=True
+)
 ```
 
-## Notes
-
-| Measurement | Mathematical Formula | Description |
-|------------|---------------------|-------------|
-| SASA | SASA(atom) = ∑(accessible points) × point_area | Solvent Accessible Surface Area for a single atom. Basic measure of exposed surface. |
-| AREA_BURIED_BY_ATOM_area<br>(ov_table_area) | AREA_buried(atom_i, atom_j) = SASA(atom_i_alone) - SASA(atom_i_complex) | Raw buried area when atom i is in contact with atom j. Total area of overlap without normalization. |
-| Normalized Area<br>(ov_norm_area) | AREA_norm(atom_i, overlap) = AREA_buried(atom_i) / N_atoms_in_overlap | Buried area normalized by number of atoms involved in the overlap. Distributes the buried area equally among all contributing atoms. |
-| Contact Surface A->B | contact(A->B) = AREA_norm(A) | Surface area of atom A buried by contact with B. NOT equal to B->A contact! |
-| Contact Surface B->A | contact(B->A) = AREA_norm(B) | Surface area of atom B buried by contact with A. |
-| dSASA (Delta SASA) | dSASA = SASA(isolated) - SASA(complex) | Difference in accessible surface area between isolated and complexed states. |
-
-
-
- Normalized Area (ov_norm_area):
-- Buried area divided by number of atoms in overlap
-- Prevents double-counting in multi-atom contacts
-- Gives fair distribution of burial contribution
-
-Contact Surface:
-- Bidirectional measure of atom interaction
-- Sum of normalized contributions from both atoms
-- Used for interface analysis
-- Sum of CSA_ij atom = BSA
-
-4. dSASA:
-- Global measure of burial upon complexation
-- Accounts for all changes in accessibility
-- Used for binding interface analysis
-
-Critical Point: Contact Surfaces are ASYMMETRIC!
-- contact(A->B) ≠ contact(B->A)
-- Example:
-  * A large atom contacting a small atom
-  * A might lose 30Å² of surface area due to contact with B
-  * While B might only lose 15Å² of surface area due to contact with A.
-
-This asymmetry is why the interaction matrices in the code are not symmetric:
-```cpp
-// These can be different values:
-atom_matrix_AtoB[i][j]  // Surface of atom i buried by contact with atom j
-atom_matrix_BtoA[j][i]  // Surface of atom j buried by contact with atom i
-```
-
-This is exactly why the code outputs two separate .tsv files for interactions:
-1. A<-B: How much surface area atom A loses due to contact with B
-2. B<-A: How much surface area atom B loses due to contact with A
-
-
-## Result Structure
-
-Check utils.py to see what results are returned.
-
-## Example Analysis
-
-```python
-
-```
+## Contributing
+Contributions are welcome!
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
