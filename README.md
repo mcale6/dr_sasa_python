@@ -28,14 +28,7 @@ dr_sasa_n is a high-performance tool for calculating Solvent Accessible Surface 
 
 ### Important Notes
 
-| Measurement        | Formula                                                                                           | Description                         |
-|-------------------|---------------------------------------------------------------------------------------------------|-------------------------------------|
-| **SASA**          | $$\text{SASA(atom)} = \sum(\text{accessible points}) \times \text{point\_area}$$                   | Basic measure of exposed surface     |
-| **Buried Area**   | $$\text{AREA}_{\text{buried}}(i,j) = \text{SASA}(i_{\text{alone}}) - \text{SASA}(i_{\text{complex}})$$ | Raw buried area between atoms        |
-| **Normalized Area**| $$\text{AREA}_{\text{norm}}(i) = \frac{\text{AREA}_{\text{buried}}(i)}{N_{\text{atoms}}}$$        | Burial normalized by contact atoms   |
-| **Contact Surface**| $$\text{CS}(A \rightarrow B) = \text{AREA}_{\text{norm}}(A)$$                                     | Directional measure of burial        |
-| **Delta SASA**    | $$\Delta \text{SASA} = \text{SASA}(\text{isolated}) - \text{SASA}(\text{complex})$$               | Total burial upon complexation       |
- 
+
 
  **Asymmetric Contacts**: Contact surfaces are inherently asymmetric - CS(A→B) ≠ CS(B→A) 
  - Example: Large atom contacting small atom * A might lose 30Å² contacting B * B might only lose 15Å² contacting A 2. 
