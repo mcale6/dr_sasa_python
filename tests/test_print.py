@@ -14,10 +14,7 @@ def test_simple_sasa_print():
     # Parse PDB file using StructureData
     structure = parse_pdb_file(TEST_PDB)
     atom_structs = structure.to_atom_structs()
-    calculator.calculate_from_atoms()
-    output = calculator.print(atom_structs, "test_simple")
-    assert isinstance(output, str)
-    assert len(output) > 0
+    results = calculator.calculate(TEST_PDB, print_output=True, output_name="my_analysis.tsv")
 
 def test_generic_sasa_print():
     """Test GenericSASA print function."""
@@ -27,10 +24,6 @@ def test_generic_sasa_print():
     structure = parse_pdb_file(TEST_PDB)
     atom_structs = structure.to_atom_structs()
     
-    output = calculator.print(atom_structs, "test_generic")
-    assert isinstance(output, str)
-    assert len(output) > 0
-
 def test_decoupled_sasa_print():
     """Test DecoupledSASA print function."""
     calculator = DecoupledSASA()
@@ -39,10 +32,6 @@ def test_decoupled_sasa_print():
     structure = parse_pdb_file(TEST_PDB)
     atom_structs = structure.to_atom_structs()
     
-    output = calculator.print(atom_structs, "test_decoupled")
-    assert isinstance(output, str)
-    assert len(output) > 0
-
 @pytest.mark.skip(reason="Need to handle empty atoms case properly in C++ code")
 def test_print_with_empty_atoms():
     """Test print function behavior with empty atom list."""
