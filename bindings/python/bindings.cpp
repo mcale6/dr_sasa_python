@@ -21,7 +21,14 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              py::arg("probe_radius") = DEFAULT_PROBE_RADIUS,
              py::arg("compute_mode") = 0)
         .def("calculate", &SimpleSASA::calculate,
-             py::arg("pdb_file"));
+             py::arg("pdb_file"),
+             "Calculate SASA from PDB file")
+        .def("calculate_from_atoms", &SimpleSASA::calculate_from_atoms,
+             py::arg("atoms"),
+             "Calculate SASA from list of atom_struct objects")
+        .def("print", &SimpleSASA::print,
+            py::arg("atoms"),
+            py::arg("fname"));
 
     py::class_<GenericSASA>(m, "GenericSASA")
         .def(py::init<float, int>(),
@@ -30,7 +37,14 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         .def("calculate", &GenericSASA::calculate,
              py::arg("pdb_file"),
              py::arg("chains") = std::vector<std::vector<std::string>>(),
-             py::arg("include_matrix") = true);
+             py::arg("include_matrix") = true)
+        .def("calculate_from_atoms", &GenericSASA::calculate_from_atoms,
+             py::arg("atoms"),
+             py::arg("chains") = std::vector<std::vector<std::string>>(),
+             py::arg("include_matrix") = true)
+        .def("print", &GenericSASA::print,
+            py::arg("atoms"),
+            py::arg("fname"));
 
     py::class_<DecoupledSASA>(m, "DecoupledSASA")
         .def(py::init<float, int>(),
@@ -39,7 +53,14 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         .def("calculate", &DecoupledSASA::calculate,
              py::arg("pdb_file"),
              py::arg("chains") = std::vector<std::vector<std::string>>(),
-             py::arg("include_matrix") = true);
+             py::arg("include_matrix") = true)
+        .def("calculate_from_atoms", &DecoupledSASA::calculate_from_atoms,
+             py::arg("atoms"),
+             py::arg("chains") = std::vector<std::vector<std::string>>(),
+             py::arg("include_matrix") = true)
+        .def("print", &DecoupledSASA::print,
+            py::arg("atoms"),
+            py::arg("fname"));
 
     // Convenience functions
     m.def("calculate_simple_sasa", 

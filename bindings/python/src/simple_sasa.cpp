@@ -13,10 +13,28 @@ py::dict SimpleSASA::calculate(const std::string& pdb_file) {
     if (atoms.empty()) {
         throw std::runtime_error("No atoms loaded from PDB file");
     }
-    vdw_radii_.SetRadius(atoms, probe_radius_);
     std::cerr.rdbuf(old_buf);
+    
+    return calculate_from_atoms(std::move(atoms));
+}
 
+py::dict SimpleSASA::calculate_from_atoms(std::vector<atom_struct> atoms) {
+    // Set radius
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    
+    // Calculate SASA
     SolveInteractions(atoms, 0);
     SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
+
     return create_analysis_results(atoms);
+}
+
+std::string SimpleSASA::print(std::vector<atom_struct>& atoms, const std::string& fname) {
+    std::stringstream output;
+    output << fname;
+    
+    PrintSASAResults(atoms, output.str());
+    PrintSplitAsaAtom(atoms, output.str(), 0);
+    
+    return output.str();
 }
