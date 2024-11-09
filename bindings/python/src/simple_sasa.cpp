@@ -6,7 +6,9 @@ SimpleSASA::SimpleSASA(float probe_radius, int compute_mode)
     vdw_radii_.GenPoints();
 }
 
-py::dict SimpleSASA::calculate(const std::string& pdb_file) {
+py::dict SimpleSASA::calculate(const std::string& pdb_file,
+                             bool print_output,
+                             const std::string& output_name) {
     std::stringstream buffer;
     auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
     auto atoms = PDBparser(pdb_file, "", true);
@@ -15,26 +17,35 @@ py::dict SimpleSASA::calculate(const std::string& pdb_file) {
     }
     std::cerr.rdbuf(old_buf);
     
-    return calculate_from_atoms(std::move(atoms));
+    return calculate_from_atoms(std::move(atoms), print_output, output_name);
 }
 
-py::dict SimpleSASA::calculate_from_atoms(std::vector<atom_struct> atoms) {
-    // Set radius
+py::dict SimpleSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
+                                        bool print_output,
+                                        const std::string& output_name) {
+    if (atoms.empty()) {
+        throw std::runtime_error("No atoms provided");
+    }
+
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
     vdw_radii_.SetRadius(atoms, probe_radius_);
+    std::cerr.rdbuf(old_buf);
     
-    // Calculate SASA
     SolveInteractions(atoms, 0);
     SimpleSolverCL(atoms, vdw_radii_.Points, cl_mode_);
-
-    return create_analysis_results(atoms);
-}
-
-std::string SimpleSASA::print(std::vector<atom_struct>& atoms, const std::string& fname) {
-    std::stringstream output;
-    output << fname;
     
-    PrintSASAResults(atoms, output.str());
-    PrintSplitAsaAtom(atoms, output.str(), 0);
+    py::dict results = create_analysis_results(atoms, false);
     
-    return output.str();
+    if (print_output) {
+        std::stringstream output;
+        output << output_name;
+        
+        PrintSASAResults(atoms, output.str());
+        PrintSplitAsaAtom(atoms, output.str(), 0);
+        
+        results["printed_output"] = output.str();
+    }
+    
+    return results;
 }

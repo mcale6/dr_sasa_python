@@ -13,6 +13,7 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         This module provides Python bindings for the DR_SASA library,
         a fast and accurate solvent accessible surface area calculator.
     )pbdoc";
+    
     py::register_exception<SASAError>(m, "SASAError");  // Register custom exceptions
     bind_atom_struct(m); // Bind core data structures
 
@@ -22,13 +23,24 @@ PYBIND11_MODULE(dr_sasa_py, m) {
              py::arg("compute_mode") = 0)
         .def("calculate", &SimpleSASA::calculate,
              py::arg("pdb_file"),
-             "Calculate SASA from PDB file")
+             py::arg("print_output") = false,
+             py::arg("output_name") = "output",
+             R"pbdoc(
+                Calculate SASA from PDB file.
+
+                Args:
+                    pdb_file (str): Path to PDB file
+                    print_output (bool): Whether to generate printed output
+                    output_name (str): Base name for output files
+
+                Returns:
+                    dict: Results including SASA values and printed output if requested
+             )pbdoc")
         .def("calculate_from_atoms", &SimpleSASA::calculate_from_atoms,
              py::arg("atoms"),
-             "Calculate SASA from list of atom_struct objects")
-        .def("print", &SimpleSASA::print,
-            py::arg("atoms"),
-            py::arg("fname"));
+             py::arg("print_output") = false,
+             py::arg("output_name") = "output",
+             "Calculate SASA from list of atom_struct objects");
 
     py::class_<GenericSASA>(m, "GenericSASA")
         .def(py::init<float, int>(),
@@ -37,14 +49,29 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         .def("calculate", &GenericSASA::calculate,
              py::arg("pdb_file"),
              py::arg("chains") = std::vector<std::vector<std::string>>(),
-             py::arg("include_matrix") = true)
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "output",
+             R"pbdoc(
+                Calculate SASA with chain-based analysis.
+
+                Args:
+                    pdb_file (str): Path to PDB file
+                    chains (List[List[str]]): Chain selections
+                    include_matrix (bool): Whether to include matrix analysis
+                    print_output (bool): Whether to generate printed output
+                    output_name (str): Base name for output files
+
+                Returns:
+                    dict: Results including SASA values and printed output if requested
+             )pbdoc")
         .def("calculate_from_atoms", &GenericSASA::calculate_from_atoms,
              py::arg("atoms"),
              py::arg("chains") = std::vector<std::vector<std::string>>(),
-             py::arg("include_matrix") = true)
-        .def("print", &GenericSASA::print,
-            py::arg("atoms"),
-            py::arg("fname"));
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "output",
+             "Calculate SASA from list of atom_struct objects");
 
     py::class_<DecoupledSASA>(m, "DecoupledSASA")
         .def(py::init<float, int>(),
@@ -53,37 +80,31 @@ PYBIND11_MODULE(dr_sasa_py, m) {
         .def("calculate", &DecoupledSASA::calculate,
              py::arg("pdb_file"),
              py::arg("chains") = std::vector<std::vector<std::string>>(),
-             py::arg("include_matrix") = true)
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "output",
+             R"pbdoc(
+                Calculate decoupled SASA analysis.
+
+                Args:
+                    pdb_file (str): Path to PDB file
+                    chains (List[List[str]]): Chain selections
+                    include_matrix (bool): Whether to include matrix analysis
+                    print_output (bool): Whether to generate printed output
+                    output_name (str): Base name for output files
+
+                Returns:
+                    dict: Results including SASA values and printed output if requested
+             )pbdoc")
         .def("calculate_from_atoms", &DecoupledSASA::calculate_from_atoms,
              py::arg("atoms"),
              py::arg("chains") = std::vector<std::vector<std::string>>(),
-             py::arg("include_matrix") = true)
-        .def("print", &DecoupledSASA::print,
-            py::arg("atoms"),
-            py::arg("fname"));
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "output",
+             "Calculate SASA from list of atom_struct objects");
 
-    // Convenience functions
-    m.def("calculate_simple_sasa", 
-        [](const std::string& pdb_file, float probe_radius = DEFAULT_PROBE_RADIUS) {
-            SimpleSASA calculator(probe_radius);
-            return calculator.calculate(pdb_file);
-        }, 
-        py::arg("pdb_file"), 
-        py::arg("probe_radius") = DEFAULT_PROBE_RADIUS);
-
-    m.def("calculate_delta_sasa", 
-        [](const std::string& pdb_file, 
-           std::vector<std::vector<std::string>>& chains,  
-           float probe_radius = DEFAULT_PROBE_RADIUS,
-           bool include_matrix = true) {
-            GenericSASA calculator(probe_radius);
-            return calculator.calculate(pdb_file, chains, include_matrix);
-        }, 
-        py::arg("pdb_file"), 
-        py::arg("chains"), 
-        py::arg("probe_radius") = DEFAULT_PROBE_RADIUS,
-        py::arg("include_matrix") = true);
-
+    // Module attributes
     m.attr("__version__") = "0.5.0";
     m.attr("__author__") = "Original: Ribeiro J., Ríos-Vera C., Melo F., Schüller A.";
     m.attr("DEFAULT_PROBE_RADIUS") = DEFAULT_PROBE_RADIUS;

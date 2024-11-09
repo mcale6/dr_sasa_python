@@ -5,17 +5,17 @@ class DecoupledSASA {
 public:
     DecoupledSASA(float probe_radius = DEFAULT_PROBE_RADIUS, int compute_mode = 0);
     
-    // Calculate from PDB file
     py::dict calculate(const std::string& pdb_file,
                       std::vector<std::vector<std::string>>& chains,
-                      bool include_matrix = true);
+                      bool include_matrix = true,
+                      bool print_output = false,
+                      const std::string& output_name = "output");
 
-    // Calculate from atoms
-    py::dict calculate_from_atoms(std::vector<atom_struct> atoms,  // Pass by value intentionally
+    py::dict calculate_from_atoms(std::vector<atom_struct> atoms,
                                 std::vector<std::vector<std::string>>& chains,
-                                bool include_matrix = true);
-
-    std::string print(std::vector<atom_struct>& atoms, const std::string& fname); // Remove const
+                                bool include_matrix = true,
+                                bool print_output = false,
+                                const std::string& output_name = "output");
 
 private:
     float probe_radius_;
