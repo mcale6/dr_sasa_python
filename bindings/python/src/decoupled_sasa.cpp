@@ -43,7 +43,7 @@ py::dict DecoupledSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
     }
 
     SolveInteractions(atoms, Imode);
-    DecoupledSolver(atoms, vdw_radii_.Points);
+    DecoupledSolver(atoms, vdw_radii_.Points); // in the original implementation the results are not saved in atom struct.  
     
     py::dict results = create_analysis_results(atoms, include_matrix);
     

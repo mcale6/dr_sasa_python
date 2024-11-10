@@ -64,7 +64,7 @@ py::dict GenericSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
 
     Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, cl_mode_);
     GeneratePairInteractionData(atoms);
-    CalculateDNA_ProtInteractions(atoms, cl_mode_);
+    CalculateDNA_ProtInteractions(atoms, cl_mode_); // maybe not needed
     
     py::dict results = create_analysis_results(atoms, include_matrix);
     

@@ -104,7 +104,7 @@ Specialized calculator for complex molecular assemblies.
 ```python
 from dr_sasa_py import DecoupledSASA
 
-# Initialize calculator
+# Initialize calculator not working yet
 calculator = DecoupledSASA(probe_radius=1.4)
 
 # Calculate with multiple chain groups
