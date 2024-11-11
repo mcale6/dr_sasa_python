@@ -64,7 +64,7 @@ py::dict GenericSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
 
     Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, cl_mode_);
     GeneratePairInteractionData(atoms);
-    CalculateDNA_ProtInteractions(atoms, cl_mode_); // maybe not needed
+    CalculateDNA_ProtInteractions(atoms, cl_mode_); // not needed for results
     
     py::dict results = create_analysis_results(atoms, include_matrix);
     
@@ -74,15 +74,34 @@ py::dict GenericSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
     }
 
     if (print_output) {
-        std::stringstream output;
-        output << output_name;
-        
-        PrintDNA_ProtResults(atoms, output.str());
-        PrintDNA_ProtResultsByAtomMatrix(atoms, output.str(), 0);
-        Print_MatrixInsideAtom(atoms, output.str(), 0);
-        PrintDNA_ProtResultsByAA(atoms, output.str());
-        
-        results["printed_output"] = output.str();
+        int atmasa_bsa = 1;
+        int atmasa_sasa = 0;
+        std::stringstream base_output;
+        base_output << output_name;
+        // .overlaps file
+        std::string overlaps_file = base_output.str() + ".overlaps";
+        PrintDNA_ProtResults(atoms, overlaps_file); 
+        // .dsasa.pdb file
+        std::string dsasa_file = base_output.str() + ".dsasa.pdb";
+        PrintDSASAResults(atoms, dsasa_file);
+        // .datmasa file
+        std::string datmasa_file = base_output.str() + ".datmasa";
+        PrintSplitAsaAtom(atoms, datmasa_file, atmasa_bsa);
+        // .asa.pdb file - main SASA results in PDB format
+        std::string asa_file = base_output.str() + ".asa.pdb";
+        PrintSASAResults(atoms, asa_file);
+        // .atmasa file - per-type SASA analysis
+        std::string atmasa_file = base_output.str() + ".atmasa";
+        PrintSplitAsaAtom(atoms, atmasa_file, atmasa_sasa);
+        if(include_matrix) {
+            // By atom matrix files
+            std::string atom_matrix_file = base_output.str() + ".by_atom.tsv";
+            PrintDNA_ProtResultsByAtomMatrix(atoms, atom_matrix_file, 0);
+            // Matrix inside atom files
+            std::string matrix_inside_file = base_output.str() + ".matrix";
+            Print_MatrixInsideAtom(atoms, matrix_inside_file, 0);
+        }
+        results["printed_output"] = base_output.str();
     }
     
     return results;

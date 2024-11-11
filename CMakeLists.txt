@@ -16,7 +16,16 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Optimization flags from original
 if(NOT APPLE)
     add_definitions(-Wall -O3 -mtune=native)
-    # Note: removed -mcpu=native as it might cause issues on some systems
+endif()
+
+# OpenCL configuration
+find_package(OpenCL REQUIRED)
+if(OpenCL_FOUND)
+    message(STATUS "OpenCL found: ${OpenCL_LIBRARIES}")
+    add_definitions(-DCL_TARGET_OPENCL_VERSION=120)
+    add_definitions(-DUSE_GPU)
+else()
+    message(WARNING "OpenCL not found, GPU support will be disabled")
 endif()
 
 # Find Python and pybind11
@@ -40,17 +49,24 @@ set(CORE_SOURCES
     dr_sasa_n/src/stdafx.cpp
 )
 
+# Copy OpenCL kernel files to build directory
+file(GLOB CL_KERNELS "dr_sasa_n/src/*.cl")
+file(COPY ${CL_KERNELS} DESTINATION ${CMAKE_BINARY_DIR}/kernels)
+
 # Core library
 add_library(dr_sasa_core STATIC ${CORE_SOURCES})
 target_include_directories(dr_sasa_core
     PUBLIC 
         ${CMAKE_SOURCE_DIR}/dr_sasa_n/src
+        ${OpenCL_INCLUDE_DIRS}
 )
 
-# Set optimization flags for core library
-if(OPENMP_FOUND)
-    target_link_libraries(dr_sasa_core PUBLIC OpenMP::OpenMP_CXX)
-endif()
+# Link OpenCL and OpenMP
+target_link_libraries(dr_sasa_core
+    PUBLIC 
+        $<$<BOOL:${OPENMP_FOUND}>:OpenMP::OpenMP_CXX>
+        $<$<BOOL:${OpenCL_FOUND}>:OpenCL::OpenCL>
+)
 
 # Python module
 pybind11_add_module(dr_sasa_py MODULE
@@ -64,6 +80,7 @@ pybind11_add_module(dr_sasa_py MODULE
 
 target_include_directories(dr_sasa_py PRIVATE 
     ${CMAKE_SOURCE_DIR}/dr_sasa_n/src
+    ${OpenCL_INCLUDE_DIRS}
 )
 
 target_link_libraries(dr_sasa_py PRIVATE 
@@ -75,8 +92,13 @@ set_target_properties(dr_sasa_py PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
 )
 
+# Copy OpenCL kernels to installation directory
+install(DIRECTORY ${CMAKE_BINARY_DIR}/kernels/
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/kernels)
+
 # Print configuration info
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "OpenMP found: ${OPENMP_FOUND}")
+message(STATUS "OpenCL found: ${OpenCL_FOUND}")
 message(STATUS "CXX Flags: ${CMAKE_CXX_FLAGS}")
 message(STATUS "Python: ${Python_EXECUTABLE}")
