@@ -3,7 +3,7 @@ import glob
 import time
 import numpy as np
 from pathlib import Path
-import dr_sasa_py as sasa
+import dr_sasa_py
 from tqdm import tqdm
 
 def parse_chain_spec(chain_spec):
@@ -19,11 +19,12 @@ def benchmark_dataset(dataset_json, pdb_dir):
         dataset = json.load(f)
     
     results = {}
-    calculator = sasa.SimpleSASA()
+    calculator = dr_sasa_py.SimpleSASA()
     
     # Process each PDB
     for pdb_id, info in tqdm(dataset.items()):
         pdb_file = Path(pdb_dir) / f"{pdb_id}.pdb"
+        print(pdb_file)
         if not pdb_file.exists():
             print(f"Missing PDB file: {pdb_file}")
             continue
@@ -39,17 +40,15 @@ def benchmark_dataset(dataset_json, pdb_dir):
             
             # Get arrays
             sasa = result['sasa']
-            bsa = result['bsa']
-            rasa = result['rasa']
+            dasa = result['dasa']
             
             # Calculate statistics
-            total_bsa = np.sum(bsa)
-            avg_rasa = np.mean(rasa)
+            avg_dasa = np.mean(dasa)
             
             results[pdb_id] = {
                 'calculation_time': calc_time,
-                'total_bsa': float(total_bsa),
-                'avg_rasa': float(avg_rasa),
+                'total_dsa': float(np.sum(avg_dasa)),
+                'avg_dasa': float(avg_dasa),
                 'reference_bsa': info.get('BSA', None),
                 'error': None
             }
@@ -62,8 +61,8 @@ def benchmark_dataset(dataset_json, pdb_dir):
     return results
 
 if __name__ == "__main__":
-    dataset_json = "dataset.json"
-    pdb_dir = "pdbs"
+    dataset_json = "data/dataset.json"
+    pdb_dir = "/home/alessio/PRODIGYdataset"
     
     results = benchmark_dataset(dataset_json, pdb_dir)
     
@@ -87,7 +86,7 @@ if __name__ == "__main__":
         if result.get('error'):
             continue
         if result['reference_bsa'] is not None:
-            error = abs(result['total_bsa'] - result['reference_bsa'])
+            error = abs(result['total_rsa'] - result['reference_bsa'])
             bsa_errors.append(error)
             
     if bsa_errors:

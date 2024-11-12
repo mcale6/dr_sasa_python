@@ -44,7 +44,7 @@ make -j4
 
 # 7. Set up Python path and virtual environment activation
 echo "Setting up environment..."
-INSTALL_PATH=$(pwd)/lib
+INSTALL_PATH=$(pwd)/build/lib
 echo "export PYTHONPATH=\$PYTHONPATH:$INSTALL_PATH" >> ~/.bashrc
 
 # 8 Test import
