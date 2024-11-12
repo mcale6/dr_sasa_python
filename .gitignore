@@ -34,6 +34,12 @@ settings.json
 # Generated files
 src_concat.txt
 *.src_concat
+*.tsv
+*.atmasa
+*.overlaps
+*.datmasa
+*dsasa.pdb
+*asa.pdb
 
 # Test cache
 .pytest_cache/

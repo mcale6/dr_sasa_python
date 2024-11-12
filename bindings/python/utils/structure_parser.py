@@ -315,7 +315,7 @@ def create_atom_structs(
             
             Optional:
             - chain_ids: [N] chain identifiers (default: 'A')
-            - elements: [N] element symbols (default: first letter of atom name)
+            - elements: [N] element symbols (default: first letter of atom name) ## improve
             - occupancies: [N] occupancy values (default: 1.0)
             - b_factors: [N] B-factors (default: 0.0)
             - atom_masks: [N] mask for each atom (default: 1)

@@ -15,7 +15,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Optimization flags from original
 if(NOT APPLE)
-    add_definitions(-Wall -O3 -mtune=native)
+    add_definitions(-Wall -O3 -mcpu=native -mtune=native)
 endif()
 
 # OpenCL configuration

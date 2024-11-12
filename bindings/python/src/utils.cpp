@@ -1,11 +1,65 @@
 #include "utils.hpp"
 
+static const std::map<std::string, float> STANDARD_SASA_VALUES = {
+    {"ALA", 92.40211452},
+    {"GLN", 184.71688},
+    {"TRP", 235.3483229},
+    {"SER", 122.353095},
+    {"ARG", 219.941475},
+    {"ILE", 158.07277},
+    {"ASN", 146.06073},
+    {"ASP", 154.71124},
+    {"HIS", 194.617376},
+    {"MET", 191.547244},
+    {"LYS", 201.689792},
+    {"LEU", 169.04496452},
+    {"THR", 145.526463},
+    {"PHE", 201.7065},
+    {"TYR", 209.07715},
+    {"GLU", 160.482561},
+    {"CYS", 130.28853},
+    {"PRO", 126.877028},
+    {"GLY", 80.23533},
+    {"VAL", 138.90233},
+    {"A", 163.5912717},
+    {"C", 162.86302775},
+    {"T", 173.03036075},
+    {"G", 164.253836},
+    {"DA", 163.5912717},
+    {"DC", 162.86302775},
+    {"DT", 173.03036075},
+    {"DG", 164.253836}
+};
+
+void RelativeSASA(std::vector<atom_struct>& atoms) {
+    for (auto& atom : atoms) {
+        if (!atom.ACTIVE) continue;
+        
+        auto it = STANDARD_SASA_VALUES.find(atom.RESN);
+        if (it != STANDARD_SASA_VALUES.end()) {
+            atom.SASA /= it->second;
+        } else {
+            atom.SASA = 0.0f;  // ? or another default value for unknown residues
+        }
+    }
+}
+
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix) {
     py::dict results;
     
-    for (const auto& atom : atoms) {
+    // First collect per-residue data
+    std::map<std::tuple<std::string, std::string, int>, py::dict> residue_data;
+    
+    // Calculate relative SASA for all atoms
+    auto atoms_copy = atoms;
+    RelativeSASA(atoms_copy);
+    
+    // Process atoms and aggregate residue data
+    for (size_t i = 0; i < atoms.size(); ++i) {
+        const auto& atom = atoms[i];
         if (!atom.ACTIVE) continue;
 
+        // Create atom data as before
         py::dict atom_data = py::dict(
             "name"_a=atom.NAME,
             "resname"_a=atom.RESN,
@@ -16,7 +70,8 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
             "sphere_area"_a=atom.AREA,
             "sasa"_a=atom.SASA,
             "polar"_a=atom.POLAR,
-            "charge"_a=atom.CHARGE
+            "charge"_a=atom.CHARGE,
+            "relative_sasa"_a=atoms_copy[i].SASA  // Get relative SASA from copied atoms
         );
 
         // Add contacts data
@@ -50,7 +105,56 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
         atom_data["overlaps"] = overlaps_data;
 
         results[py::str(std::to_string(atom.ID))] = std::move(atom_data);
+
+        // Aggregate residue data
+        auto res_key = std::make_tuple(atom.CHAIN, atom.RESN, atom.RESI);
+        if (residue_data.find(res_key) == residue_data.end()) {
+            residue_data[res_key] = py::dict(
+                "chain"_a=atom.CHAIN,
+                "resname"_a=atom.RESN,
+                "resid"_a=atom.RESI,
+                "total_sasa"_a=atom.SASA,
+                "total_area"_a=atom.AREA,
+                "relative_sasa"_a=atoms_copy[i].SASA,
+                "n_atoms"_a=1,
+                "center"_a=py::make_tuple(atom.COORDS[0], atom.COORDS[1], atom.COORDS[2])
+            );
+        } else {
+            auto& res = residue_data[res_key];
+            res["total_sasa"] = res["total_sasa"].cast<float>() + atom.SASA;
+            res["total_area"] = res["total_area"].cast<float>() + atom.AREA;
+            res["relative_sasa"] = res["relative_sasa"].cast<float>() + atoms_copy[i].SASA;
+            res["n_atoms"] = res["n_atoms"].cast<int>() + 1;
+            
+            // Update center
+            auto center = res["center"].cast<py::tuple>();
+            res["center"] = py::make_tuple(
+                center[0].cast<float>() + atom.COORDS[0],
+                center[1].cast<float>() + atom.COORDS[1],
+                center[2].cast<float>() + atom.COORDS[2]
+            );
+        }
     }
+
+    // Finalize residue data (calculate averages)
+    py::list res_data_list;
+    for (auto& [key, res] : residue_data) {
+        int n_atoms = res["n_atoms"].cast<int>();
+        auto center = res["center"].cast<py::tuple>();
+        
+        // Calculate average center
+        res["center"] = py::make_tuple(
+            center[0].cast<float>() / n_atoms,
+            center[1].cast<float>() / n_atoms,
+            center[2].cast<float>() / n_atoms
+        );
+        // Calculate average relative SASA
+        res["relative_sasa"] = res["relative_sasa"].cast<float>() / n_atoms;
+        res_data_list.append(res);
+    }
+
+    results["residue_data"] = res_data_list;
+    
     return results;
 }
 
