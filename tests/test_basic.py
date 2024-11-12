@@ -5,7 +5,7 @@ import numpy as np
 from typing import List, Optional, Dict, Any
 
 import dr_sasa_py
-from bindings.python.utils.structure_parser import *
+from structure_parser import *
 
 # Constants
 TEST_DATA_DIR = Path(__file__).parent / "data"
@@ -23,33 +23,50 @@ def get_test_file(key: str) -> Path:
     return path
 
 def validate_sasa_results(results: Dict[str, Any], calc_type: str = "simple") -> None:
-    """Validate SASA calculation results based on calculator type"""
+    """Validate SASA calculation results"""
     assert isinstance(results, dict)
-    assert len(results) > 0
+    assert "atom_data" in results
+    assert "residue_data" in results
+
+    # Validate atom data
+    atom_data = results["atom_data"]
+    assert isinstance(atom_data, dict)
+    assert len(atom_data) > 0
 
     # Get first atom entry
-    first_atom_id = next(iter(results))
-    first_atom = results[first_atom_id]
+    first_atom_id = next(iter(atom_data))
+    first_atom = atom_data[first_atom_id]
 
-    # Common validations for all calculator types
+    # Validate atom data structure
     assert isinstance(first_atom, dict)
-    assert "chain" in first_atom
-    assert "coords" in first_atom
+    required_atom_fields = {
+        "name", "resname", "chain", "resid", "struct_type",
+        "coords", "sphere_area", "sasa", "polar", "charge"
+    }
+    missing_atom_fields = required_atom_fields - set(first_atom.keys())
+    assert not missing_atom_fields, f"Missing atom fields: {missing_atom_fields}"
+    
+    # Validate atom data types
     assert isinstance(first_atom["coords"], tuple)
     assert len(first_atom["coords"]) == 3
+    assert isinstance(first_atom["sasa"], float)
+    assert isinstance(first_atom["sphere_area"], float)
 
-    if calc_type in ["generic", "decoupled"]:
-        # Additional validations for generic/decoupled calculators
-        assert "contacts" in first_atom
-        if first_atom["contacts"]:
-            first_contact = next(iter(first_atom["contacts"].values()))
-            assert "contact_area" in first_contact
-            assert "distance" in first_contact
-            assert "struct_type" in first_contact
+    # Basic residue data validation
+    residue_data = results["residue_data"]
+    assert isinstance(residue_data, list)
+    assert len(residue_data) > 0
+
+    # Validate basic residue fields
+    first_residue = residue_data[0]
+    basic_residue_fields = {
+        "chain", "resname", "resid", "total_sasa", "total_area",
+        "standard_sasa", "dsasa", "n_atoms", "center"
+    }
+    missing_residue_fields = basic_residue_fields - set(first_residue.keys())
+    assert not missing_residue_fields, f"Missing basic residue fields: {missing_residue_fields}"
             
 class TestDrSasa:
-    """Main test class for DR-SASA functionality"""
-    
     @pytest.fixture(autouse=True)
     def setup(self):
         """Setup test environment"""
