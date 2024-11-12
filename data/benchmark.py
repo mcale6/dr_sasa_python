@@ -24,7 +24,6 @@ def benchmark_dataset(dataset_json, pdb_dir):
     # Process each PDB
     for pdb_id, info in tqdm(dataset.items()):
         pdb_file = Path(pdb_dir) / f"{pdb_id}.pdb"
-        print(pdb_file)
         if not pdb_file.exists():
             print(f"Missing PDB file: {pdb_file}")
             continue
@@ -39,16 +38,16 @@ def benchmark_dataset(dataset_json, pdb_dir):
             calc_time = time.time() - start_time
             
             # Get arrays
-            sasa = result['sasa']
-            dasa = result['dasa']
-            
-            # Calculate statistics
-            avg_dasa = np.mean(dasa)
-            
+            #sasa = result['sasa']
+            ichain_ = info.get('Interacting_chains', None).split(":")[-1]
+
+            dasa = np.sum([result["residue_data"][i]["dsasa"] for i in range(len(result["residue_data"])) if result["residue_data"][i]["chain"] == ichain_])
+            if dasa <= 0:
+                continue
+           
             results[pdb_id] = {
                 'calculation_time': calc_time,
-                'total_dsa': float(np.sum(avg_dasa)),
-                'avg_dasa': float(avg_dasa),
+                'total_dsa': dasa,
                 'reference_bsa': info.get('BSA', None),
                 'error': None
             }
@@ -86,7 +85,7 @@ if __name__ == "__main__":
         if result.get('error'):
             continue
         if result['reference_bsa'] is not None:
-            error = abs(result['total_rsa'] - result['reference_bsa'])
+            error = abs(result['total_dsa'] - result['reference_bsa'])
             bsa_errors.append(error)
             
     if bsa_errors:

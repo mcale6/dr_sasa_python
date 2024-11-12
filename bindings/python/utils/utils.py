@@ -6,106 +6,91 @@ from typing import Dict, Any
 def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
     dfs = {}
     
-    # Base atom dataframe
-    atom_info = results['atoms']
-    coords = np.array(atom_info['coordinates'])
-    base_df = pd.DataFrame({
-        'id': atom_info['ids'],
-        'residue': atom_info['residues'],
-        'chain': atom_info['chains'],
-        'element': atom_info['elements'],
-        'mol_type': atom_info['mol_types'],
-        'residue_number': atom_info['residue_numbers'],
-        'is_hetatm': atom_info['is_hetatm'],
-        'atom_type': atom_info['atom_types'],
-        'polarity': atom_info['polarity'],
-        'x': coords[:,0],
-        'y': coords[:,1],
-        'z': coords[:,2],
-        'radius': atom_info['radii'],
-        'radius2': atom_info['radii2'],
-        'vdw': atom_info['vdw'],
-        'b_factor': atom_info['b_factors']
-    })
-    dfs['atoms'] = base_df
+    # Convert atom data to DataFrame
+    atom_data = results['atom_data']
+    atom_records = []
     
-    # Surface area dataframe
-    dfs['surface'] = pd.DataFrame({
-        'area': results['surface']['area'],
-        'sasa': results['surface']['sasa'],
-        'buried_area': results['surface']['buried_area'],
-        'fast_dsasa': results['surface']['fast_dsasa'],
-        'accessible': results['surface']['accessible']
-    })
+    for atom_id, atom_info in atom_data.items():
+        record = {
+            'id': int(atom_id),
+            'name': atom_info['name'],
+            'resname': atom_info['resname'],
+            'chain': atom_info['chain'],
+            'resid': atom_info['resid'],
+            'struct_type': atom_info['struct_type'],
+            'x': atom_info['coords'][0],
+            'y': atom_info['coords'][1],
+            'z': atom_info['coords'][2],
+            'sphere_area': atom_info['sphere_area'],
+            'sasa': atom_info['sasa'],
+            'polar': atom_info['polar'],
+            'charge': atom_info['charge']
+        }
+        atom_records.append(record)
+    
+    dfs['atoms'] = pd.DataFrame(atom_records).set_index('id')
 
-    # Interaction data
-    interaction_data = []
-    for atom_idx, (interacting_atoms, sasa_atoms, contact_map) in enumerate(zip(
-            results['interactions']['atoms'],
-            results['interactions']['sasa_atoms'], 
-            results['interactions']['contact_areas'])):
+    # Convert residue data to DataFrame
+    residue_records = []
+    for res in results['residue_data']:
+        record = {
+            'chain': res['chain'],
+            'resname': res['resname'],
+            'resid': res['resid'],
+            'total_sasa': res['total_sasa'],
+            'total_area': res['total_area'],
+            'standard_sasa': res['standard_sasa'],
+            'dsasa': res['dsasa'],
+            'n_atoms': res['n_atoms'],
+            'center_x': res['center'][0],
+            'center_y': res['center'][1],
+            'center_z': res['center'][2],
+           # 'buried_area': res['buried_area']
+        }
         
-        for interacting_atom in interacting_atoms:
-            interaction_data.append({
-                'atom_index': atom_idx,
-                'interacting_atom': interacting_atom,
-                'is_sasa_interaction': interacting_atom in sasa_atoms,
-                'contact_area': contact_map.get(interacting_atom, 0.0)
-            })
+        # Add contacts if present
+        if res['contacts']:
+            for contact_id, contact_info in res['contacts'].items():
+                record[f'contact_{contact_id}_area'] = contact_info['contact_area']
+                record[f'contact_{contact_id}_distance'] = contact_info['distance']
+                record[f'contact_{contact_id}_type'] = contact_info['struct_type']
+        
+        # Add overlaps if present
+        if res['overlaps']:
+            for i, overlap in enumerate(res['overlaps']):
+                record[f'overlap_{i}_residues'] = ','.join(map(str, overlap['residues']))
+                record[f'overlap_{i}_area'] = overlap['overlap_area']
+                record[f'overlap_{i}_norm_area'] = overlap['normalized_area']
+                record[f'overlap_{i}_buried'] = overlap['buried_area']
+        
+        residue_records.append(record)
     
-    if interaction_data:
-        dfs['interactions'] = pd.DataFrame(interaction_data)
+    dfs['residues'] = pd.DataFrame(residue_records)
 
-    # Matrix handling with new format
-    if 'matrices' in results:
-        # Atom level matrix
-        atom_matrix = results['matrices']['atom']
-        dfs['atom_matrix'] = pd.DataFrame(
-            atom_matrix['values'],
-            index=atom_matrix['row_labels'],
-            columns=atom_matrix['col_labels']
+    # Handle matrix data if present
+    if 'interaction_matrices' in results:
+        for key, matrix_data in results['interaction_matrices'].items():
+            matrix_df = pd.DataFrame(
+                matrix_data['matrix'],
+                index=matrix_data['row_labels'],
+                columns=matrix_data['col_labels']
+            )
+            dfs[f'interaction_matrix_{key}'] = matrix_df
+
+    if 'intra_matrices' in results:
+        atom_matrix = results['intra_matrices']['atom_matrix']
+        residue_matrix = results['intra_matrices']['residue_matrix']
+        
+        dfs['intra_atom_matrix'] = pd.DataFrame(
+            atom_matrix,
+            index=results['intra_matrices']['atom_labels'],
+            columns=results['intra_matrices']['atom_labels']
         )
         
-        # Residue level matrix
-        res_matrix = results['matrices']['residue']
-        dfs['residue_matrix'] = pd.DataFrame(
-            res_matrix['values'],
-            index=res_matrix['row_labels'],
-            columns=res_matrix['col_labels']
+        dfs['intra_residue_matrix'] = pd.DataFrame(
+            residue_matrix,
+            index=results['intra_matrices']['residue_labels'],
+            columns=results['intra_matrices']['residue_labels']
         )
-
-    # Add residue interaction DataFrame
-    if 'residue_interactions' in results:
-        ri = results['residue_interactions']
-        dfs['residue_interactions'] = pd.DataFrame({
-            'residue1': ri['residue1'],
-            'residue2': ri['residue2'],
-            'buried_area': ri['buried_area'],
-            'dsasa_res1': ri['dsasa_res1'],
-            'dsasa_res2': ri['dsasa_res2']
-        })
-    
-    if 'atom_interactions' in results:
-        ai = results['atom_interactions']
-        dfs['atom_interactions'] = pd.DataFrame({
-            'atom1_id': ai['atom1_id'],
-            'atom2_id': ai['atom2_id'],
-            'buried_area': ai['buried_area'],
-            'dsasa_atom1': ai['dsasa_atom1'],
-            'dsasa_atom2': ai['dsasa_atom2']
-        })
-
-    # Surface summary if present
-    if 'surface_summary' in results:
-        summary_data = []
-        for obj_id, summary in results['surface_summary'].items():
-            summary_data.append({
-                'object_id': obj_id,
-                'complex_surface': summary['complex_surface'],
-                'buried_by_other': summary['buried_by_other'],     # A<---B
-                'buries_in_other': summary['buries_in_other'],     # A--->B
-                'interface_area': summary['interface_area']
-            })
-        dfs['surface_summary'] = pd.DataFrame(summary_data)
 
     return dfs
