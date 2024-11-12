@@ -1,7 +1,7 @@
 #pragma once
 #include "common.hpp"
 
-void RelativeSASA(std::vector<atom_struct>& atoms);
+void RelativeSASA2(std::vector<atom_struct>& atoms);
 
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix);
 

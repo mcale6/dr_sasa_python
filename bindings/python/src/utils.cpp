@@ -31,7 +31,7 @@ static const std::map<std::string, float> STANDARD_SASA_VALUES = {
     {"DG", 164.253836}
 };
 
-void RelativeSASA(std::vector<atom_struct>& atoms) {
+void RelativeSASA2(std::vector<atom_struct>& atoms) {
     for (auto& atom : atoms) {
         if (!atom.ACTIVE) continue;
         
@@ -44,6 +44,152 @@ void RelativeSASA(std::vector<atom_struct>& atoms) {
     }
 }
 
+
+py::dict create_analysis_results_(const std::vector<atom_struct>& atoms, bool include_matrix) {
+    py::dict results;
+    using shape_t = std::vector<ssize_t>;
+    
+    // Process atom-level data (this part remains serial as it's creating Python objects)
+    for (const auto& atom : atoms) {
+        if (!atom.ACTIVE) continue;
+
+        py::dict atom_data = py::dict(
+            "name"_a=atom.NAME,
+            "resname"_a=atom.RESN,
+            "chain"_a=atom.CHAIN,
+            "resid"_a=atom.RESI,
+            "struct_type"_a=atom.STRUCT_TYPE,
+            "coords"_a=py::make_tuple(atom.COORDS[0], atom.COORDS[1], atom.COORDS[2]),
+            "sphere_area"_a=atom.AREA,
+            "sasa"_a=atom.SASA,
+            "polar"_a=atom.POLAR,
+            "charge"_a=atom.CHARGE
+        );
+
+        // Contacts and overlaps processing...
+        // [existing code]
+
+        results[py::str(std::to_string(atom.ID))] = std::move(atom_data);
+    }
+
+    // Prepare residue data
+    std::map<std::tuple<std::string, std::string, int>, size_t> residue_indices;
+    size_t n_residues = 0;
+    
+    // First pass to count residues (needs to be serial)
+    for (const auto& atom : atoms) {
+        if (!atom.ACTIVE) continue;
+        auto res_key = std::make_tuple(atom.CHAIN, atom.RESN, atom.RESI);
+        if (residue_indices.find(res_key) == residue_indices.end()) {
+            residue_indices[res_key] = n_residues++;
+        }
+    }
+
+    // Calculate relative SASA
+    auto atoms_copy = atoms;
+    RelativeSASA2(atoms_copy);
+
+    // Allocate result arrays
+    std::vector<float> sasa_values(n_residues, 0.0f);
+    std::vector<float> area_values(n_residues, 0.0f);
+    std::vector<float> rel_sasa_values(n_residues, 0.0f);
+    std::vector<float> coordinates(n_residues * 3, 0.0f);
+    std::vector<std::string> chains(n_residues);
+    std::vector<std::string> resnames(n_residues);
+    std::vector<int> resids(n_residues);
+    std::vector<int> atom_counts(n_residues, 0);
+
+    // Parallel processing of residue data
+    #pragma omp parallel
+    {
+        // Thread-local storage
+        //const int thread_id = omp_get_thread_num();
+        //const int n_threads = omp_get_num_threads();
+        
+        // Each thread gets its own accumulation arrays
+        std::vector<float> local_sasa(n_residues, 0.0f);
+        std::vector<float> local_area(n_residues, 0.0f);
+        std::vector<float> local_rel_sasa(n_residues, 0.0f);
+        std::vector<float> local_coords(n_residues * 3, 0.0f);
+        std::vector<int> local_counts(n_residues, 0);
+
+        // Process atoms in parallel
+        #pragma omp for schedule(guided)
+        for (size_t i = 0; i < atoms.size(); ++i) {
+            const auto& atom = atoms[i];
+            if (!atom.ACTIVE) continue;
+
+            auto res_key = std::make_tuple(atom.CHAIN, atom.RESN, atom.RESI);
+            size_t res_idx = residue_indices[res_key];
+            
+            // Accumulate in thread-local storage
+            local_sasa[res_idx] += atom.SASA;
+            local_area[res_idx] += atom.AREA;
+            local_rel_sasa[res_idx] += atoms_copy[i].SASA;
+            
+            local_coords[res_idx * 3] += atom.COORDS[0];
+            local_coords[res_idx * 3 + 1] += atom.COORDS[1];
+            local_coords[res_idx * 3 + 2] += atom.COORDS[2];
+            
+            local_counts[res_idx]++;
+
+            // First thread to process a residue sets its metadata
+            if (local_counts[res_idx] == 1) {
+                #pragma omp critical(metadata)
+                {
+                    if (atom_counts[res_idx] == 0) {
+                        chains[res_idx] = atom.CHAIN;
+                        resnames[res_idx] = atom.RESN;
+                        resids[res_idx] = atom.RESI;
+                    }
+                }
+            }
+        }
+
+        // Combine results from all threads
+        #pragma omp critical(accumulate)
+        {
+            for (size_t i = 0; i < n_residues; ++i) {
+                sasa_values[i] += local_sasa[i];
+                area_values[i] += local_area[i];
+                rel_sasa_values[i] += local_rel_sasa[i];
+                coordinates[i * 3] += local_coords[i * 3];
+                coordinates[i * 3 + 1] += local_coords[i * 3 + 1];
+                coordinates[i * 3 + 2] += local_coords[i * 3 + 2];
+                atom_counts[i] += local_counts[i];
+            }
+        }
+    }
+
+    // Calculate averages in parallel
+    #pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < n_residues; ++i) {
+        if (atom_counts[i] > 0) {
+            float inv_count = 1.0f / atom_counts[i];
+            rel_sasa_values[i] *= inv_count;
+            coordinates[i * 3] *= inv_count;
+            coordinates[i * 3 + 1] *= inv_count;
+            coordinates[i * 3 + 2] *= inv_count;
+        }
+    }
+
+    // Create residue data with numpy arrays (serial)
+    py::dict residue_data;
+    residue_data["sasa"] = py::array_t<float>(shape_t{(ssize_t)n_residues}, sasa_values.data());
+    residue_data["area"] = py::array_t<float>(shape_t{(ssize_t)n_residues}, area_values.data());
+    residue_data["relative_sasa"] = py::array_t<float>(shape_t{(ssize_t)n_residues}, rel_sasa_values.data());
+    residue_data["coordinates"] = py::array_t<float>(shape_t{(ssize_t)n_residues, 3}, coordinates.data());
+    residue_data["chains"] = py::cast(chains);
+    residue_data["resnames"] = py::cast(resnames);
+    residue_data["resids"] = py::array_t<int>(shape_t{(ssize_t)n_residues}, resids.data());
+    residue_data["n_atoms"] = py::array_t<int>(shape_t{(ssize_t)n_residues}, atom_counts.data());
+    
+    results["residue_data"] = residue_data;
+    
+    return results;
+}
+
+
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix) {
     py::dict results;
     
@@ -52,7 +198,7 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
     
     // Calculate relative SASA for all atoms
     auto atoms_copy = atoms;
-    RelativeSASA(atoms_copy);
+    RelativeSASA2(atoms_copy);
     
     // Process atoms and aggregate residue data
     for (size_t i = 0; i < atoms.size(); ++i) {
