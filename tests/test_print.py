@@ -3,7 +3,7 @@ import os
 import numpy as np
 from pathlib import Path
 from dr_sasa_py import SimpleSASA, GenericSASA, DecoupledSASA
-from structure_parser import *
+from bindings.python.utils.structure_parser import StructureData, parse_pdb_file
 
 # Get path to test PDB file
 TEST_PDB = str(Path(__file__).parent / "data" / "3i40.pdb")

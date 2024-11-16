@@ -30,16 +30,14 @@ static const std::map<std::string, float> STANDARD_SASA_VALUES = {
                             { "DT",173.03036075},
                             { "DG",164.253836}
 };
-
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix) {
     py::dict results;
     py::dict atom_data;
-    // collect per-residue data with contacts and overlaps
-    std::map<std::tuple<std::string, std::string, int>, py::dict> residue_data;
+    py::list residue_data;  // Keep as list
+    py::dict residue_index; // New index structure
     
-    // Calculate dSASA
-    //auto atoms_copy = atoms;
-    //dSASA(atoms_copy);  // This calculates STANDARD_SASA - SASA, copies the atomstruct maybe not ideal
+    // collect per-residue data with contacts and overlaps
+    std::map<std::tuple<std::string, std::string, int>, py::dict> residue_temp_data;
     
     // Process atoms and aggregate residue data
     for (size_t i = 0; i < atoms.size(); ++i) {
@@ -65,24 +63,24 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
 
         // Aggregate residue data with contacts and overlaps
         auto res_key = std::make_tuple(atom.CHAIN, atom.RESN, atom.RESI);
-        if (residue_data.find(res_key) == residue_data.end()) {
+        if (residue_temp_data.find(res_key) == residue_temp_data.end()) {
             auto it = STANDARD_SASA_VALUES.find(atom.RESN);
             float standard_sasa = it != STANDARD_SASA_VALUES.end() ? it->second : 0.0f;
             
-            residue_data[res_key] = py::dict(
+            residue_temp_data[res_key] = py::dict(
                 "chain"_a=atom.CHAIN,
                 "resname"_a=atom.RESN,
                 "resid"_a=atom.RESI,
-                "total_sasa"_a=atom.SASA,  // Start accumulating SASA
-                "total_area"_a=atom.AREA,  // This should be the VDW surface area
-                "standard_sasa"_a=standard_sasa,  // Store the reference value
+                "total_sasa"_a=atom.SASA,
+                "total_area"_a=atom.AREA,
+                "standard_sasa"_a=standard_sasa,
                 "n_atoms"_a=1,
                 "center"_a=py::make_tuple(atom.COORDS[0], atom.COORDS[1], atom.COORDS[2]),
                 "contacts"_a=py::dict(),
                 "overlaps"_a=py::list()
             );
         } else {
-            auto& res = residue_data[res_key];
+            auto& res = residue_temp_data[res_key];
             res["total_sasa"] = res["total_sasa"].cast<float>() + atom.SASA;
             res["total_area"] = res["total_area"].cast<float>() + atom.AREA;
             res["n_atoms"] = res["n_atoms"].cast<int>() + 1;
@@ -97,7 +95,7 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
         }
 
         // Add contacts to residue data
-        auto& res = residue_data[res_key];
+        auto& res = residue_temp_data[res_key];
         auto contacts = res["contacts"].cast<py::dict>();
         for (uint32_t pos : atom.INTERACTION_SASA_P) {
             const auto& other_atom = atoms[pos];
@@ -128,9 +126,10 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
         res["overlaps"] = overlaps;
     }
 
-    // Finalize residue data (calculate averages)
-    py::list res_data_list;
-    for (auto& [key, res] : residue_data) {
+    // Finalize residue data and build index
+    size_t index = 0;
+    for (auto& [key, res] : residue_temp_data) {
+        const auto& [chain, resname, resid] = key;
         int n_atoms = res["n_atoms"].cast<int>();
         float total_sasa = res["total_sasa"].cast<float>();
         float standard_sasa = res["standard_sasa"].cast<float>();
@@ -148,12 +147,19 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
         
         // Set final dSASA
         res["dsasa"] = dsasa;
-        res_data_list.append(res);
+        
+        // Add to residue_data list
+        residue_data.append(res);
+        
+        // Create unique residue identifier and add to index
+        std::string residue_id = chain + "_" + resname + "_" + std::to_string(resid);
+        residue_index[py::str(residue_id)] = index++;
     }
 
-    // Create final structure
+    // Create final structure with both list and index
     results["atom_data"] = atom_data;
-    results["residue_data"] = res_data_list;
+    results["residue_data"] = residue_data;
+    results["residue_index"] = residue_index;
     
     return results;
 }

@@ -46,20 +46,6 @@ def test_import():
 
     # Assert at least one method worked
     assert len(import_methods) > 0, "No import methods succeeded"
-    
-    # Return the first successful import for use in other tests
-    if "Direct import successful" in import_methods:
-        import dr_sasa_py
-        return dr_sasa_py
-    elif "From import SASA classes successful" in import_methods:
-        from dr_sasa_py import SimpleSASA
-        return SimpleSASA
-    elif "Importlib import successful" in import_methods:
-        import importlib
-        return importlib.import_module('dr_sasa_py')
-    elif "Full path import successful" in import_methods:
-        return dr_sasa_full_path
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])  # -s flag to show print statements
