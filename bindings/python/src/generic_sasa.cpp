@@ -69,8 +69,8 @@ py::dict GenericSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
     py::dict results = create_analysis_results(atoms, include_matrix);
     
     if (include_matrix) {
-        results["interaction_matrices"] = generate_interaction_matrices(atoms);
-        results["intra_matrices"] = generate_intra_matrices(atoms);
+        results["inter_bsa_matrix"] = generate_inter_bsa_matrices(atoms);
+        results["intra_bsa_matrix"] = generate_intra_bsa_matrices(atoms);
     }
 
     if (print_output) {

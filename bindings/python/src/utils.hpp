@@ -3,9 +3,9 @@
 
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix);
 
-py::dict generate_interaction_matrices(std::vector<atom_struct>& atoms);
+py::dict generate_inter_bsa_matrices(std::vector<atom_struct>& atoms);
 
-py::dict generate_intra_matrices(std::vector<atom_struct>& atoms);
+py::dict generate_intra_bsa_matrices(std::vector<atom_struct>& atoms);
 
 namespace conversion {
 

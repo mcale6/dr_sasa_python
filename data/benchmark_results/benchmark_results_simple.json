@@ -1,0 +1,20 @@
+{
+  "1KTZ": {
+    "calculation_time": 0.30239391326904297,
+    "receptor_dsasa": 7425.67073059082,
+    "ligand_dsasa": 11056.191078186035,
+    "total_dsasa": 18481.861808776855,
+    "reference_bsa": 989,
+    "interface_residues": 180,
+    "error": null
+  },
+  "1US7": {
+    "calculation_time": 0.6871681213378906,
+    "receptor_dsasa": 23129.866847991943,
+    "ligand_dsasa": 19221.41752243042,
+    "total_dsasa": 42351.28437042236,
+    "reference_bsa": 1106,
+    "interface_residues": 397,
+    "error": null
+  }
+}

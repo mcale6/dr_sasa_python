@@ -164,7 +164,7 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
     return results;
 }
 
-py::dict generate_interaction_matrices(std::vector<atom_struct>& atoms) {
+py::dict generate_inter_bsa_matrices(std::vector<atom_struct>& atoms) {
     map<vector<string>, vector<float>> matrixIJatom;
     map<vector<string>, vector<float>> matrixIJres;
     map<vector<string>, vector<string>> COLatom, COLres;
@@ -208,7 +208,7 @@ py::dict generate_interaction_matrices(std::vector<atom_struct>& atoms) {
     return results;
 }
 
-py::dict generate_intra_matrices(std::vector<atom_struct>& atoms) {
+py::dict generate_intra_bsa_matrices(std::vector<atom_struct>& atoms) {
     vector<float> matrixIJatom, matrixIJres;
     vector<string> COLatom, COLres, ROWatom, ROWres;
     vector<uint32_t> COLatomtype, ROWatomtype;

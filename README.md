@@ -16,15 +16,24 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 - Efficient Python/C++ interface using pybind11
 
-- NumPy-based memory management
+- Optional original print output
+
+- Returns Extensive Analysis Results Data Structure (memory heavy)
 
 - Multiple calculation modes:
 
   - Simple SASA
 
-  - Generic SASA (chain-based analysis)
+  - Generic SASA (chain-based analysis; use this for dimeric protein-protein interactions)
 
   - Decoupled SASA (independent contributions)
+
+## In Development
+- Currently values are 2% off from the original code. Unclear where discrepancy is coming from.
+- Fixing Decoupled SASA (in original code, calcuations are not saved in atom_struct, so no values are returned)
+- Input validation (e.g empty atoms)
+- CUDA support
+- Comprehensive contact surface analysis, plots
 
 ## Benchmark Dataset References
 
@@ -34,18 +43,7 @@ The implementation has been validated using datasets from:
 
 2. Moal, I.H., Agius, R., Bates, P.A. (2011) "Protein-protein binding affinity prediction on a diverse set of structures". Bioinformatics. DOI: 10.1093/bioinformatics/btr513
 
-
-### Current Features
-- High-performance SASA calculations on Linux systems with OpenMP/OpenCL support
-- Efficient Python/C++ interface using pybind11
-- NumPy-based memory management
-- Multiple calculation modes for different analysis needs
-
-### In Development
-- Optional file I/O handling
-- OpenCL/CUDA acceleration support
-- Refined inter/intra BSA matrix calculations
-- Comprehensive contact surface analysis
+## Quick Installation
 
 ### Requirements
 - Python 3.8+
@@ -53,6 +51,53 @@ The implementation has been validated using datasets from:
 - C++17 compatible compiler
 - CMake 3.15+
 - pybind11
+
+### One-Line Installation
+Download and run the installation script:
+```bash
+curl -s https://raw.githubusercontent.com/mcale6/dr_sasa_python/main/install.sh | bash
+```
+
+### Manual Installation Steps
+
+1. Install system dependencies:
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake git python3 python3-dev python3-venv python3-full ocl-icd-opencl-dev
+```
+
+2. Create and activate a virtual environment:
+```bash
+python3 -m venv ~/dr_sasa_venv
+source ~/dr_sasa_venv/bin/activate
+```
+
+3. Install Python dependencies:
+```bash
+pip install --upgrade pip setuptools wheel
+pip install "pybind11[global]" numpy pandas pytest
+```
+
+4. Clone and build the repository:
+```bash
+git clone --recursive https://github.com/mcale6/dr_sasa_python.git
+cd dr_sasa_python
+mkdir -p build && cd build
+cmake ..
+make -j4
+```
+
+5. Set up Python path:
+```bash
+echo "export PYTHONPATH=\$PYTHONPATH:$(pwd)/build/lib" >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Verifying Installation
+Test the installation by importing the package:
+```bash
+python -c "import dr_sasa_py; print('DR-SASA Python installed successfully!')"
+```
 
 ### Important Notes
 
@@ -72,13 +117,13 @@ When `print_output=True`, the following files are generated:
 | `.overlaps` | Detailed atomic overlap information |
 | `matrix.tsv` | Full atom-vs-atom contact matrices |
 
- **Result Dict**: 
-The calculation returns a Python dictionary with the following structure:
-When `include_matrix=True` and `print_output=True`, additional 3 fields are included ("residue_matrices", "interaction_matrices", "intra_matrices") beside atom_data and residue_data:
+# Analysis Results Data Structure
+The analysis results are returned as a dictionary containing atom-level data, residue-level data, and a residue index for efficient lookups.\
+When `include_matrix=True` and `print_output=True`, additional 3 fields are included beside atom_data and residue_data: "residue_matrices", "interaction_matrices", "intra_matrices". 
 
+## Structure Overview
 ```python
 {
-    # Atom-level data
     "atom_data": {
         "1": {  # Atom ID as key
             "name": "CA",           # Atom name
@@ -95,53 +140,90 @@ When `include_matrix=True` and `print_output=True`, additional 3 fields are incl
         # ... more atoms
     },
 
-    # Residue-level data
-    "residue_data": [
+    "residue_data": [  # List of residues in order
         {
             "chain": "A",          # Chain identifier
             "resname": "ALA",      # Residue name
             "resid": 1,           # Residue number
             "total_sasa": 92.3,    # Total SASA for residue
             "total_area": 185.6,   # Total surface area
-            "dsasa": 30.76,   # Difference from standard SASA
-                                  # (STANDARD_SASA - total_sasa)
+            "dsasa": 30.76,        # Difference from standard SASA
             "n_atoms": 5,          # Number of atoms in residue
             "center": (23.1, 12.8, 34.2),  # Center of mass
             
-            # Contact information
-            "contacts": {
+            "contacts": {          # Contacts with other atoms
                 "2": {             # Contact atom ID
                     "struct_type": "protein",
                     "contact_area": 15.3,
                     "distance": 3.8
-                },
+                }
                 # ... more contacts
             },
             
-            # Overlap information
-            "overlaps": [
+            "overlaps": [         # List of overlap groups
                 {
                     "atoms": [2, 3, 4],     # Overlapping atom IDs
                     "overlap_area": 25.6,    # Area of overlap
                     "normalized_area": 0.212, # Normalized overlap area
                     "buried_area": 94.9      # Buried surface area
-                },
+                }
                 # ... more overlaps
             ]
-        },
+        }
         # ... more residues
-    ]
+    ],
+
+    "residue_index": {  # Maps residue identifiers to list indices
+        "A_ALA_1": 0,   # Format: "chain_resname_resid": index
+        "A_GLY_2": 1,
+        # ... more residue indices
+    }
 }
 ```
 
-### Quick Install
-```bash
-# Clone repository
-git clone https://github.com/username/dr_sasa_python.git
-cd dr_sasa_python
+## Accessing the Data
 
-# Install using provided script
-./install.sh
+### Atom Data
+Access atom information directly by atom ID:
+```python
+# Get data for atom with ID 1
+atom = results["atom_data"]["1"]
+print(f"Atom {atom['name']} has SASA of {atom['sasa']}")
+```
+
+### Residue Data
+Two ways to access residue data:
+
+1. Sequential access (by index):
+```python
+# Get first residue in structure
+first_res = results["residue_data"][0]
+print(f"First residue is {first_res['resname']}{first_res['resid']}")
+
+# Iterate through all residues
+for residue in results["residue_data"]:
+    print(f"Residue {residue['chain']}_{residue['resname']}{residue['resid']} has {residue['n_atoms']} atoms")
+```
+
+2. Lookup by residue identifier:
+```python
+# Get specific residue using residue_index
+res_id = "A_ALA_1"  # Format: "chain_resname_resid"
+idx = results["residue_index"][res_id]
+residue = results["residue_data"][idx]
+print(f"SASA for {res_id}: {residue['total_sasa']}")
+```
+
+### Working with Contacts and Overlaps
+```python
+# Access contacts for a residue
+residue = results["residue_data"][0]
+for atom_id, contact in residue["contacts"].items():
+    print(f"Contact with atom {atom_id}: area = {contact['contact_area']}, distance = {contact['distance']}")
+
+# Access overlaps for a residue
+for overlap in residue["overlaps"]:
+    print(f"Overlap involving atoms {overlap['atoms']}: area = {overlap['overlap_area']}")
 ```
 
 ## 1. SimpleSASA
