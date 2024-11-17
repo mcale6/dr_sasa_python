@@ -46,8 +46,6 @@ src_concat.txt
 .coverage
 htmlcov/
 
-.PRODIGYdataset/*
-
 # macOS specific
 .DS_Store
 .AppleDouble
