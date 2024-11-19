@@ -1,9 +1,7 @@
 # Python Bindings for dr_sasa_n (unofficial)
 
 Python bindings for dr_sasa_n (Solvent Accessible Surface Area Calculator), a high-performance tool that calculates SASA using an extension of the Shrake-Ruply algorithm.
-
-## Citation
-
+\
 If you use dr_sasa_n in your research, please cite:
 
 > Ribeiro, J., Ríos-Vera, C., Melo, F. and Schüller, A. (2018) "Calculation of accurate contact surface areas between atoms for the quantitative analysis of non-bonded molecular interactions". Bioinformatics
@@ -24,9 +22,9 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
   - Simple SASA
 
-  - Generic SASA (chain-based analysis; use this for dimeric protein-protein interactions)
+  - Generic SASA (chain-based analysis)
 
-  - Decoupled SASA (independent contributions)
+  - Decoupled SASA (independent contributions of chains, masks non-selected chains)
 
 ## In Development
 - Currently values are 2% off from the original code. Unclear where discrepancy is coming from.
