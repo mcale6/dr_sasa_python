@@ -41,7 +41,7 @@ The implementation has been validated using datasets from:
 
 2. Moal, I.H., Agius, R., Bates, P.A. (2011) "Protein-protein binding affinity prediction on a diverse set of structures". Bioinformatics. DOI: 10.1093/bioinformatics/btr513
 
-Check out [Benchmark Results](data/benchmark_results/README.md)
+Check out [Benchmark Results](data/README.md)
 
 ## Quick Installation
 
