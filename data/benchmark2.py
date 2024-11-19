@@ -17,8 +17,6 @@ from Bio.PDB import *
 from Bio.PDB.SASA import ShrakeRupley
 import subprocess
 import tempfile
-import re
-
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom JSON encoder for NumPy types."""
@@ -32,7 +30,7 @@ class NumpyEncoder(json.JSONEncoder):
         elif isinstance(obj, (np.ndarray,)):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
-    
+
 class CPUMonitor:
     def __init__(self):
         self.process = psutil.Process()
@@ -40,12 +38,14 @@ class CPUMonitor:
         self._monitoring = False
     
     def start(self):
+        """Start CPU monitoring in background."""
         self._monitoring = True
         self.measurements = []
         self._start_time = time.time()
         threading.Thread(target=self._monitor, daemon=True).start()
     
     def stop(self):
+        """Stop CPU monitoring and return statistics."""
         self._monitoring = False
         if not self.measurements:
             return {}
@@ -53,6 +53,9 @@ class CPUMonitor:
         cpu_percents = [m['cpu_percent'] for m in self.measurements]
         thread_counts = [m['num_threads'] for m in self.measurements]
         memory_usage = [m['memory_percent'] for m in self.measurements]
+        python_threads = [m['python_threads'] for m in self.measurements]
+        openmp_threads = [m['openmp_threads'] for m in self.measurements]
+        system_threads = [m['system_threads'] for m in self.measurements]
         
         return {
             'duration': time.time() - self._start_time,
@@ -65,28 +68,59 @@ class CPUMonitor:
                 'threads': {
                     'mean': np.mean(thread_counts),
                     'max': np.max(thread_counts),
-                    'min': np.min(thread_counts)
+                    'min': np.min(thread_counts),
+                    'python': {
+                        'mean': np.mean(python_threads),
+                        'max': np.max(python_threads)
+                    },
+                    'openmp': {
+                        'mean': np.mean(openmp_threads),
+                        'max': np.max(openmp_threads)
+                    },
+                    'system': {
+                        'mean': np.mean(system_threads),
+                        'max': np.max(system_threads)
+                    }
                 },
                 'memory_percent': {
                     'mean': np.mean(memory_usage),
                     'max': np.max(memory_usage),
                     'min': np.min(memory_usage)
+                },
+                'hardware': {
+                    'physical_cores': psutil.cpu_count(logical=False),
+                    'logical_cores': psutil.cpu_count(),
+                    'numa_nodes': len(psutil.numa_partitions()) if hasattr(psutil, 'numa_partitions') else 1
                 }
             },
             'num_measurements': len(self.measurements)
         }
 
     def _monitor(self):
+        """Background monitoring function."""
         while self._monitoring:
             try:
+                # Get OpenMP thread count from environment
+                openmp_threads = int(os.environ.get('OMP_NUM_THREADS', '0'))
+                # Get Python thread count
+                python_threads = threading.active_count()
+                # Get total process threads
+                total_threads = self.process.num_threads()
+                # Calculate system threads (total minus Python and OpenMP)
+                system_threads = max(0, total_threads - python_threads - openmp_threads)
+                
                 self.measurements.append({
                     'timestamp': time.time() - self._start_time,
                     'cpu_percent': self.process.cpu_percent(),
-                    'num_threads': self.process.num_threads(),
+                    'num_threads': total_threads,
+                    'python_threads': python_threads,
+                    'openmp_threads': openmp_threads,
+                    'system_threads': system_threads,
                     'memory_percent': self.process.memory_percent()
                 })
-                time.sleep(0.1)
-            except:
+                time.sleep(0.1)  # Sample every 100ms
+            except Exception as e:
+                print(f"Monitoring error: {str(e)}")
                 pass
 
 def create_comparison_plots(results: Dict, output_dir: Path):
@@ -158,9 +192,8 @@ def calculate_original_dr_sasa(pdb_file: str, dr_sasa_exec: str = "/home/alessio
         return np.array(atom_sasa), calc_time
 
 
-def calculate_dr_sasa(pdb_file: str, n_threads: int) -> Tuple[np.ndarray, float]:
+def calculate_dr_sasa(pdb_file: str) -> Tuple[np.ndarray, float]:
     """Calculate SASA using dr_sasa."""
-    os.environ['OMP_NUM_THREADS'] = str(n_threads)
     calculator = dr_sasa_py.SimpleSASA(probe_radius=1.4)
     
     start_time = time.time()
@@ -233,13 +266,13 @@ def calculate_differences(values1: np.ndarray, values2: np.ndarray) -> Dict:
         'correlation': float(np.corrcoef(values1, values2)[0,1])
     }
 
-def analyze_structure(pdb_file: str, n_threads: int, dr_sasa_exec: str) -> Dict:
+def analyze_structure(pdb_file: str, dr_sasa_exec: str) -> Dict:
     """Analyze a structure using different SASA calculation methods."""
     results = {}
     
     try:
         # Calculate SASA with each method
-        dr_sasa_values, dr_sasa_time = calculate_dr_sasa(pdb_file, n_threads)
+        dr_sasa_values, dr_sasa_time = calculate_dr_sasa(pdb_file)
         original_values, original_time = calculate_original_dr_sasa(pdb_file, dr_sasa_exec)
         freesasa_values, freesasa_time = calculate_freesasa(pdb_file)
         biopython_values, biopython_time = calculate_biopython(pdb_file)
@@ -280,7 +313,6 @@ def main():
     parser.add_argument('-dataset_json', default="data/dataset.json", help='Path to dataset JSON file')
     parser.add_argument('-pdb_dir', default="data/PRODIGYdataset_fixed", help='Directory containing PDB files')
     parser.add_argument('-output_dir', default="data/benchmark_results", help='Directory for output files')
-    parser.add_argument('-n_threads', type=int, default=4, help='Number of threads for dr_sasa')
     parser.add_argument('-dr_sasa_exec', 
                        default="/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa",
                        help='Path to original dr_sasa executable')
@@ -332,7 +364,7 @@ def main():
         
         try:
             # Analyze structure with all methods
-            results = analyze_structure(pdb_file, args.n_threads, args.dr_sasa_exec)
+            results = analyze_structure(pdb_file, args.dr_sasa_exec)
             all_results[pdb_id] = results
             
             if 'error' not in results:
@@ -363,7 +395,6 @@ def main():
     print("-" * 40)
     print(f"Physical cores: {psutil.cpu_count(logical=False)}")
     print(f"Logical cores: {psutil.cpu_count()}")
-    print(f"DR_SASA threads: {args.n_threads}")
     
     print("\nProcessing Summary:")
     print("-" * 40)

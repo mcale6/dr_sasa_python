@@ -30,6 +30,7 @@ static const std::map<std::string, float> STANDARD_SASA_VALUES = {
                             { "DT",173.03036075},
                             { "DG",164.253836}
 };
+
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix) {
     py::dict results;
     py::dict atom_data;

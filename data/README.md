@@ -45,7 +45,6 @@ Note: The original dr_sasa implementation shows higher execution times primarily
 ### System Resource Usage
 - Average CPU usage: 69.8%
 - Peak CPU usage: 471.6% (utilizing multiple cores)
-- Average thread count: 10.0
 - Memory usage: 2.2%
 
 ### Key Findings

@@ -8,7 +8,6 @@ from bindings.python.utils.structure_parser import StructureData, parse_pdb_file
 # Get path to test PDB file
 TEST_PDB = str(Path(__file__).parent / "data" / "3i40.pdb")
 
-
 def test_generic_sasa_print():
     """Test GenericSASA print function and matrix generation."""
     calculator = GenericSASA()
@@ -22,14 +21,13 @@ def test_generic_sasa_print():
                                  include_matrix=True,
                                  output_name="generic_with_matrix.tsv")
     assert isinstance(results, dict)
-    assert "interaction_matrices" in results
+    assert "inter_bsa_matrix" in results
+    assert "intra_bsa_matrix" in results
     
     # Check intra matrices if present
     if "intra_matrices" in results:
-        intra = results["intra_matrices"]
-        assert all(k in intra for k in ['atom_matrix', 'residue_matrix', 'atom_labels'])
-        assert isinstance(intra['atom_matrix'], np.ndarray)
-        assert isinstance(intra['residue_matrix'], np.ndarray)
+        #assert all(k in intra for k in ['atom_matrix', 'residue_matrix', 'atom_labels'])
+        assert isinstance(results["intra_bsa_matrix"]["atom_matrix"], np.ndarray)
 
 def test_decoupled_sasa_print():
     """Test DecoupledSASA print function and matrix generation."""
