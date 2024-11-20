@@ -5,29 +5,6 @@
 #include "src/decoupled_sasa.hpp"
 #include "src/utils.hpp"
 
-// Mode 0: Simple SASA solver
-// Just calculates SASA and outputs NACCESS PDB-like file
-
-// Mode 1: Manual chain interaction solver
-// When chains are explicitly specified (chain_sep.size() >= 2)
-// Calculates dSASA between specified chains
-
-// Mode 2: Residue dSASA mode
-// Calculates dSASA of all residues inside a single object
-// For intramolecular contacts at residue level
-
-// Mode 3: Atom dSASA mode  
-// Calculates dSASA of all atoms inside a single object
-// For intramolecular contacts at atom level
-
-// Mode 4: Automatic molecular contact solver
-// When chains.size() <= 1 and no specific chains selected
-// Calculates contacts between different molecular types (PROTEIN/DNA/RNA)
-
-// Mode 5: Special protein-protein mode
-// Automatically detected when there are exactly two protein chains
-// Optimized for protein-protein interface analysis
-
 PYBIND11_MODULE(dr_sasa_py, m) {
     m.doc() = R"pbdoc(
         DR_SASA Python Bindings

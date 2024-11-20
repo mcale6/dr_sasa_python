@@ -3,7 +3,14 @@
 
 class GenericSASA {
 public:
-    GenericSASA(float probe_radius = DEFAULT_PROBE_RADIUS, int compute_mode = 0);
+    // Constructor with member initialization list
+    GenericSASA(float probe_radius = DEFAULT_PROBE_RADIUS, int compute_mode = 0)
+        : vdw_radii_(""),  // Initialize VDWcontainer directly
+          probe_radius_(probe_radius),
+          cl_mode_(compute_mode)
+    {
+        vdw_radii_.GenPoints();
+    }
     
     py::dict calculate(const std::string& pdb_file,
                       std::vector<std::vector<std::string>>& chains,
@@ -18,7 +25,7 @@ public:
                                 const std::string& output_name = "output");
 
 private:
+    VDWcontainer vdw_radii_;
     float probe_radius_;
     int cl_mode_;
-    VDWcontainer vdw_radii_;
 };

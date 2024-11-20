@@ -16,18 +16,22 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 - Optional original print output
 
-- Returns Extensive Analysis Results Data Structure (memory heavy)
+- Returns Extensive Analysis Results Data Structure
 
-- Multiple calculation modes:
+- Multiple calculation modes, eruated automatically:
 
-  - Simple SASA
+  - Simple SASA (Only SASA and standard dSASA calculations)
 
-  - Generic SASA (chain-based analysis)
+  - GenericSASA (generates additional interaction data)
+    Mode 1: Multiple specified chains
+    Mode 4: Default/automatic
+    Mode 5: Special protein-protein interactions (when chain=2)
 
-  - Decoupled SASA (independent contributions of chains, masks non-selected chains)
+    - DecoupledSASA (just calculates overlaps)
+    Mode 2: Different molecule types (e.g DNA-Protein)
+    Mode 3: Different chains (chain-based separations)
 
 ## In Development
-- Currently values are 2% off from the original code. Unclear where discrepancy is coming from.
 - Fixing Decoupled SASA (in original code, calcuations are not saved in atom_struct, so no values are returned)
 - Input validation (e.g empty atoms)
 - CUDA support

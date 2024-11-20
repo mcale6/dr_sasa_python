@@ -1,11 +1,6 @@
 #include "decoupled_sasa.hpp"
 #include "utils.hpp"
 
-DecoupledSASA::DecoupledSASA(float probe_radius, int compute_mode) 
-    : probe_radius_(probe_radius), cl_mode_(compute_mode) {
-    vdw_radii_.GenPoints();
-}
-
 py::dict DecoupledSASA::calculate(const std::string& pdb_file,
                                  std::vector<std::vector<std::string>>& chains,
                                  bool include_matrix,
@@ -41,13 +36,12 @@ py::dict DecoupledSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
     if (!chains.empty()) {
         ChainSelector(chains, atoms);
     }
-
+    //// In SolveInteractions, Imode affects the selection of which atoms interact:
     SolveInteractions(atoms, Imode);
-    DecoupledSolver(atoms, vdw_radii_.Points); // in the original implementation the results are not saved in atom struct.  
+    DecoupledSolver(atoms, vdw_radii_.Points);
     
     py::dict results = create_analysis_results(atoms, include_matrix);
     
-
     if (include_matrix) {
         results["inter_bsa_matrix"] = generate_inter_bsa_matrices(atoms);
         results["intra_bsa_matrix"] = generate_intra_bsa_matrices(atoms);

@@ -3,7 +3,14 @@
 
 class SimpleSASA {
 public:
-    SimpleSASA(float probe_radius = DEFAULT_PROBE_RADIUS, int compute_mode = 0);
+    // Constructor with member initialization list
+    SimpleSASA(float probe_radius = DEFAULT_PROBE_RADIUS, int compute_mode = 0)
+        : vdw_radii_(""),  // Initialize VDWcontainer directly
+          probe_radius_(probe_radius),
+          cl_mode_(compute_mode)
+    {
+        vdw_radii_.GenPoints();
+    }
     
     py::dict calculate(const std::string& pdb_file,
                       bool print_output = false,
@@ -14,7 +21,7 @@ public:
                                 const std::string& output_name = "output");
 
 private:
+    VDWcontainer vdw_radii_;  // Now initialized in constructor
     float probe_radius_;
     int cl_mode_;
-    VDWcontainer vdw_radii_;
 };
