@@ -11,7 +11,6 @@ This benchmark compares different implementations for calculating Solvent Access
 The benchmark was run on the following system:\
 CPU: AMD EPYC 7B12, 16GB working memory with 4 physical cores and 2 threads per core. 
 
-
 ## Benchmark Results
 
 ### Processing Summary
@@ -29,23 +28,23 @@ CPU: AMD EPYC 7B12, 16GB working memory with 4 physical cores and 2 threads per 
 | Biopython        | 0.651 ± 0.346     | 0.577      | 0.176   | 2.371   |
 
 Note: The original dr_sasa implementation shows higher execution times primarily due to file I/O overhead, as it requires writing PDB files for output. \
-*SimpleSASA Class is used in dr_sasa Python. If GenenricSASA the performance is 2.5x slower.
+*SimpleSASA Class is used in dr_sasa Python. If GenericSASA the performance is 2.5x slower.
 
 ### SASA Comparison Statistics
 
 | Comparison                 | RMSD      | Correlation | Max Difference |
 |---------------------------|-----------|-------------|----------------|
-| Python vs Original        | 0.928 ± 0.095 | 0.996 ± 0.001 | 8.817 ± 0.609  |
-| Python vs FreeSASA        | 1.610 ± 0.142 | 0.990 ± 0.001 | 13.292 ± 1.398 |
-| Python vs Biopython       | 1.950 ± 0.121 | 0.983 ± 0.001 | 11.840 ± 0.783 |
+| Python vs Original        | 0.002 ± 0.0001 | 1.000 ± 0.000 | 0.007 ± 0.003  |
+| Python vs FreeSASA        | 1.321 ± 0.110 | 0.993 ± 0.001 | 10.339 ± 1.068 |
+| Python vs Biopython       | 2.246 ± 0.133 | 0.978 ± 0.002 | 12.392 ± 1.068 |
 | Original vs FreeSASA      | 1.321 ± 0.110 | 0.993 ± 0.001 | 10.339 ± 1.068 |
 | Original vs Biopython     | 2.246 ± 0.133 | 0.978 ± 0.002 | 12.391 ± 1.068 |
 | FreeSASA vs Biopython     | 2.031 ± 0.112 | 0.982 ± 0.002 | 12.769 ± 1.448 |
 
 ### System Resource Usage
-- Average CPU usage: 69.8%
-- Peak CPU usage: 471.6% (utilizing multiple cores)
-- Memory usage: 2.2%
+- Average CPU usage: 57.0%
+- Peak CPU usage: 1260.2%
+- Memory usage: 2.3%
 
 ### Key Findings
 
@@ -55,12 +54,12 @@ Note: The original dr_sasa implementation shows higher execution times primarily
    - Biopython shows competitive performance
 
 2. **Accuracy**:
-   - Highest correlation (0.996) between Python bindings and original implementation
+   - Perfect correlation (1.000) between Python bindings and original implementation
    - All implementations show strong correlations (>0.97)
-   - RMSD values range from 0.93 to 2.25 Å²
+   - RMSD values range from 0.002 to 2.25 Å²
 
 3. **Resource Usage**:
-   - Efficient CPU utilization across multiple cores
+   - High CPU utilization across multiple cores
    - Moderate memory footprint
    - Good thread scaling
 

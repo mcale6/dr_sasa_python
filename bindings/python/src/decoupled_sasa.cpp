@@ -37,6 +37,7 @@ py::dict DecoupledSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
         ChainSelector(chains, atoms);
     }
     //// In SolveInteractions, Imode affects the selection of which atoms interact:
+
     SolveInteractions(atoms, Imode);
     DecoupledSolver(atoms, vdw_radii_.Points);
     
