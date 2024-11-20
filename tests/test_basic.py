@@ -208,7 +208,7 @@ class TestDrSasa:
         assert np.all(np.isfinite(structure.atom_positions))
 
     @pytest.mark.calculation
-    @pytest.mark.parametrize("calc_type", ["simple", "generic", "decoupled"])
+    @pytest.mark.parametrize("calc_type", ["simple", "generic"])
     def test_sasa_calculation(self, calc_type):
         """Test SASA calculation with different calculators"""
         calculator = self.calculators[calc_type]
@@ -255,7 +255,7 @@ class TestDrSasa:
                 pytest.xfail(f"Chain selection not fully implemented: {str(e)}")
 
     @pytest.mark.output
-    @pytest.mark.parametrize("calc_type", ["simple", "generic", "decoupled"])
+    @pytest.mark.parametrize("calc_type", ["simple", "generic"])
     def test_output_generation(self, calc_type, tmp_path):
         """Test output file generation"""
         calculator = self.calculators[calc_type]

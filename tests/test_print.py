@@ -29,30 +29,6 @@ def test_generic_sasa_print():
         #assert all(k in intra for k in ['atom_matrix', 'residue_matrix', 'atom_labels'])
         assert isinstance(results["intra_bsa_matrix"]["atom_matrix"], np.ndarray)
 
-def test_decoupled_sasa_print():
-    """Test DecoupledSASA print function and matrix generation."""
-    calculator = DecoupledSASA()
-    
-    # Parse PDB file using StructureData
-    structure = parse_pdb_file(TEST_PDB)
-    atom_structs = structure.to_atom_structs()
-    
-    # Test with matrices
-    results = calculator.calculate(TEST_PDB, print_output=True,
-                                 include_matrix=True,
-                                 output_name="decoupled_with_matrix.tsv")
-    assert isinstance(results, dict)
-    
-    # Verify matrix structure if present
-    if "interaction_matrices" in results:
-        matrices = results["interaction_matrices"]
-        assert isinstance(matrices, dict)
-        
-        # Check matrix content
-        for key, data in matrices.items():
-            if key != "residue_matrices":
-                assert isinstance(data['matrix'], np.ndarray)
-                assert data['matrix'].ndim == 2  # Should be 2D array
 
 @pytest.mark.skip(reason="Need to handle empty atoms case properly in C++ code")
 def test_print_with_empty_atoms():

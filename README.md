@@ -93,7 +93,7 @@ make -j4
 
 5. Set up Python path:
 ```bash
-echo "export PYTHONPATH=\$PYTHONPATH:$(pwd)/build/lib" >> ~/.bashrc
+echo "export PYTHONPATH=$(pwd)/build/lib:$(pwd)/build:$(pwd)" >> ~/.bashrc
 source ~/.bashrc
 ```
 
