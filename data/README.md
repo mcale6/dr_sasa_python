@@ -65,10 +65,10 @@ Note: The original dr_sasa implementation shows higher execution times primarily
 
 ## Visualization
 
-![SASA Implementation Comparison](benchmark_results1/implementation_comparison.png)
+![SASA Implementation Comparison](benchmark_results/implementation_comparison.png)
 *Comparison of SASA values between different implementations*
 
-![SASA Differences Distribution](benchmark_results1/differences_distribution.png)
+![SASA Differences Distribution](benchmark_results/differences_distribution.png)
 *Distribution of SASA value differences between implementations*
 
 ## Technical Details
