@@ -20,28 +20,29 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 - Multiple calculation modes: SimpleSolver > DecoupledSolver > GenericSolver (Computational Efficiency)
 
-### SimpleSASA (mode 0)
 
+### SimpleSASA (mode 0)
 - Basic SASA: $A_{SASA} = A_{total} * (N_{accessible}/N_{total})$
 
-- Point burial: $isBuried(P_k) = ||P_k - C_j||² \leq R_j²$
-
 ### GenericSolver (modes 1-3)
-
-- ΔSASA: $SASA_{new} - SASA_{original}$
-
+- $dSASA = SASA_{chainAB} - SASA_{chainA}$
 - Pattern matching: $P(G) = \prod_{i \in G} p_i$
+- Buried area: $A_{buried} = A_{total} * (N_{pattern}/N_{total})$
 
-- Buried area: $A_{buried} = A_{total} * (N_{pattern}/N_{total})$ (overlap are calculated by the differences between states)
-
-### DecoupledSolver (mode 4) 
-
+### DecoupledSolver (mode 4)
 - Contact points: $P_k = R_i * S_k + C_i - C_j$
-
 - Contact area: $A_{contact} = A_{total} * (N_{contact}/N_{total})$
+- Overlap area: $A_{overlap}(G) = A_{total} * (N_{overlap}/N_{total})$
 
-- Overlap area: $A_{overlap}(G) = A_{total} * (N_{overlap}/N_{total})$ (Directly calculates overlaps in current state without comparison)
+The key difference is that GenericSolver computes overlaps by comparing states (original vs. new) while DecoupledSolver directly calculates overlaps within a single state, though both can output similar overlap and contact information in their results.
 
+### Point Transformations
+$$
+\begin{align*}
+\text{Surface Points:}& \quad \vec{p}_k = R_i\vec{s}_k + \vec{c}_i \\
+\text{Contact Check:}& \quad ||\vec{p}_k - \vec{c}_j||^2 \leq R_j^2
+\end{align*}
+$$
 
 ## In Development
 - Fixing Decoupled SASA
