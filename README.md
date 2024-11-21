@@ -18,18 +18,30 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 - Returns Extensive Analysis Results Data Structure
 
-- Multiple calculation modes, eruated automatically:
+- Multiple calculation modes: SimpleSolver > DecoupledSolver > GenericSolver (Computational Efficiency)
 
-  - Simple SASA (Only SASA and standard dSASA calculations)
+### SimpleSASA (mode 0)
 
-  - GenericSASA (generates additional interaction data) \
-    Mode 1: Multiple specified chains \
-    Mode 4: Default/automatic \
-    Mode 5: Special protein-protein interactions (when chain=2) \
+- Basic SASA: $A_{SASA} = A_{total} * (N_{accessible}/N_{total})$
 
-  - DecoupledSASA (just calculates overlaps) \
-    Mode 2: Different molecule types (e.g DNA-Protein) \
-    Mode 3: Different chains (chain-based separations) \
+- Point burial: $isBuried(P_k) = ||P_k - C_j||² \leq R_j²$
+
+### GenericSolver (modes 1-3)
+
+- ΔSASA: $SASA_{new} - SASA_{original}$
+
+- Pattern matching: $P(G) = \prod_{i \in G} p_i$
+
+- Buried area: $A_{buried} = A_{total} * (N_{pattern}/N_{total})$ (overlap are calculated by the differences between states)
+
+### DecoupledSolver (mode 4) 
+
+- Contact points: $P_k = R_i * S_k + C_i - C_j$
+
+- Contact area: $A_{contact} = A_{total} * (N_{contact}/N_{total})$
+
+- Overlap area: $A_{overlap}(G) = A_{total} * (N_{overlap}/N_{total})$ (Directly calculates overlaps in current state without comparison)
+
 
 ## In Development
 - Fixing Decoupled SASA
@@ -279,126 +291,46 @@ for atom_id, atom_data in results.items():
             print(f"  - Contact with {contact_id}: {contact_info['contact_area']:.2f} Å²")
 ```
 
-# Sphere Point Distribution Methods in SASA Calculations
-
-This document compares two methods for distributing points on a unit sphere used in Solvent Accessible Surface Area (SASA) calculations.
-
-### 1. Golden Spiral Method
-
-A deterministic method that generates points by spiraling from the top to bottom of a sphere.
-
-Golden Spiral (less uniform):           Thomson (more uniform):
-     o   o   o                            o  o  o
-   o   o   o   o                       o   o   o   o
-o   o   o   o   o    vs.             o  o  o  o  o
-   o   o   o   o                       o   o   o   o
-     o   o   o                            o  o  o
-
-When checking if buried:
-dist_j = (x-xj)² + (y-yj)² + (z-zj)²
-b[k] = (dist_j <= R_J²)
-
-Properties:
+## Sphere Point Distribution Comparison
+Point distribution: $dA = r^2 \sin(\theta) d\theta d\phi$
+### Golden Spiral
 - Deterministic pattern
 - Points follow spiral from pole to pole
 - Equal area between points but not equal distances
-- Point density varies with latitude (denser at poles)
-- Area element: dA = r² sin(θ) dθ dφ
-- Point density: ∝ 1/sin(θ)
-
-### 2. Thomson Problem Solution
-
-Points distributed by minimizing electrostatic potential energy between points.
-
-Mathematical Formulation:
-```
-E = ∑∑ 1/|ri - rj|  for i ≠ j
-    i j
-
-where:
-- E is total energy
-- ri, rj are point positions on sphere
-- |ri - rj| is distance between points
-```
-
-Properties:
-- Points distributed through energy minimization
-- Uniform distribution across sphere surface
-- Equal distances between neighboring points
-- Constant point density across surface
-- Area element: dA = r² sin(θ) dθ dφ
-- Point density: ≈ constant
-
-
-Point distribution on atom surface:        Point checking:
-       o   o   o   o                    
-    o    o    o    o    o               For each point:
-   o      o    o     o                  1. Transform to atom surface
-  o        o    o      o                2. Check distance to neighboring atoms
-  o         O          o                3. Mark as buried if inside neighbor
-   o                  o                 
-    o                o                  SASA = (unburied points / total points) 
-       o   o   o   o                         * total surface area
-
-Given:
-- p[k3], p[k3+1], p[k3+2]: Point on unit sphere (x,y,z coordinates where sqrt(x²+y²+z²)=1)
-- R_I: Radius of atom i (VDW radius + probe radius)
-- C_I: Center coordinates of atom i
-- C_J: Center coordinates of neighboring atom j
-
-Transform:
-1. Scale by radius: p * R_I          (expands unit sphere to atom size)
-2. Translate: + C_I                  (moves to atom position)
-3. Relative position: - C_J          (gets position relative to neighbor)
-
-### Impact on SASA Calculations
-
-SASA is calculated as:
-```
-SASA = (number of unburied points / total points) * 4πr²
-
-where point is buried if:
-dist_j = (x-xj)² + (y-yj)² + (z-zj)² ≤ R_J²
-```
-
-### Error Analysis
-
-Golden Spiral:
+- *Point density: ∝ 1/sin(θ), error: E_golden ∝ ∫(1/sin(θ)) dθ, variable with orientation*
 - Error varies with burial orientation due to uneven distribution
 - Higher accuracy near poles
 - Lower accuracy near equator
 - Not rotationally invariant
 
-Thomson:
+### Thomson
+Thomson optimization: $E = \sum_{i}\sum_{j\neq i} \frac{1}{|\vec{r}_i - \vec{r}_j|}$
 - Uniform error distribution
+- Equal distances between neighboring points
 - Rotationally invariant results
 - More accurate overall surface area calculation
+- *Point density: ≈ constant, error ≈ constant, independent of orientation*
 - Better representation of buried surface patches
 
-## Recommendations
+### SASA Calculation Process
 
-Thomson distribution is preferred for SASA calculations because:
-1. Uniform point distribution ensures consistent accuracy
-2. Results are independent of molecular orientation
-3. Better representation of buried surface patches
-4. More accurate total surface area calculation
+$$
+\begin{align*}
+\text{1. Point Generation:} \\
+&\bullet \text{ Unit sphere points: } \sqrt{x^2+y^2+z^2}=1 \\
+&\bullet \text{ Scale: } \vec{p} = p \cdot R_I \\
+&\bullet \text{ Translate: } \vec{p} = \vec{p} + \vec{C_I} \\
+&\bullet \text{ For overlap: } \vec{p} = \vec{p} - \vec{C_J} \\
+\\
+\text{2. Burial Check:} \\
+&\text{dist}_j = (x-x_j)^2 + (y-y_j)^2 + (z-z_j)^2 \\
+&\text{buried} = (\text{dist}_j \leq R_J^2) \\
+\\
+\text{3. SASA Calculation:} \\
+&SASA = \frac{N_{\text{unburied}}}{N_{\text{total}}} \cdot 4\pi r^2
+\end{align*}
+$$
 
-However, Golden Spiral might be preferred when:
-1. Reproducibility is critical (deterministic)
-2. Computational speed is prioritized
-3. Approximate results are acceptable
-
-## Mathematical Comparison
-
-Area calculation error:
-```
-Golden Spiral error ∝ 1/sin(θ)   # Varies with latitude
-Thomson error ≈ constant         # Uniform across surface
-
-Total SASA error:
-E_golden ∝ ∫(1/sin(θ)) dθ       # Variable with orientation
-E_thomson ∝ constant            # Independent of orientation
-```
 
 ## Contributing
 Contributions are welcome!
