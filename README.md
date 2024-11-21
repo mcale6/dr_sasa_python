@@ -26,7 +26,7 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 ### GenericSolver (modes 1-3)
 - $dSASA = SASA_{chainAB} - SASA_{chainA}$
-- Pattern matching: $P(G) = \prod_{i \in G} p_i$
+- Pattern matching: $P(G) = \prod_{i \in G} p_i$ (primes)
 - Buried area: $A_{buried} = A_{total} * (N_{pattern}/N_{total})$
 
 ### DecoupledSolver (mode 4)
