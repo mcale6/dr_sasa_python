@@ -1,5 +1,5 @@
 #include "atom_bindings.hpp"
-#include "utils.hpp"
+#include "common.hpp"
 
 namespace py = pybind11;
 
@@ -66,9 +66,9 @@ void bind_atom_struct(py::module& m) {
                 }
                 a.COORDS = numpy_to_vector(array);
             })
-                .def_property_readonly("contacts",
+        .def_property_readonly("contacts",
             [](const atom_struct& a) {
-                return conversion::atom_contacts_to_dict(a);
+                return atom_contacts_to_dict<float>(a);  // Specify template parameter
             })
         .def_property_readonly("interaction_partners",
             [](const atom_struct& a) {

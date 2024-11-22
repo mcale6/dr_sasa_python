@@ -59,9 +59,12 @@ py::dict DecoupledSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
 
     SolveInteractions(atoms, Imode);
     DecoupledSolver(atoms, vdw_radii_.Points);
-    
-    //py::dict results = create_analysis_results(atoms, include_matrix);
-    py::dict results;
+    CalculateDNA_ProtInteractions(atoms, 1);
+    calculate_contact_areas_from_overlaps(atoms);
+
+    py::dict results = create_analysis_results(atoms, include_matrix);
+    //py::dict results; does not have sasa values, SASA = AREA - EXT0  // Total area minus buried area
+
     if (include_matrix) {
         results["inter_bsa_matrix"] = generate_inter_bsa_matrices(atoms);
         results["intra_bsa_matrix"] = generate_intra_bsa_matrices(atoms);

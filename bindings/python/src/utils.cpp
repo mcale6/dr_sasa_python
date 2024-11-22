@@ -1,51 +1,96 @@
-#include "common.hpp"
+#include "utils.hpp"
+#include "constants.hpp"
 
-static const std::map<std::string, float> STANDARD_SASA_VALUES = {
-                            {"ALA",92.40211452},
-                            {"GLN",184.71688},
-                            {"TRP",235.3483229},
-                            {"SER",122.353095},
-                            {"ARG",219.941475},
-                            {"ILE",158.07277},
-                            {"ASN",146.06073},
-                            {"ASP",154.71124},
-                            {"HIS",194.617376},
-                            {"MET",191.547244},
-                            {"LYS",201.689792},
-                            {"LEU",169.04496452},
-                            {"THR",145.526463}, 
-                            {"PHE",201.7065},
-                            {"TYR",209.07715},
-                            {"GLU",160.482561},
-                            {"CYS",130.28853},
-                            {"PRO",126.877028},
-                            {"GLY",80.23533}, 
-                            {"VAL",138.90233},  
-                            { "A",163.5912717},
-                            { "C",162.86302775},
-                            { "T",173.03036075},
-                            { "G",164.253836},
-                            { "DA",163.5912717},
-                            { "DC",162.86302775},
-                            { "DT",173.03036075},
-                            { "DG",164.253836}
-};
+ASAComponents classify_atom_asa(const atom_struct& atom, float base_asa) {
+    ASAComponents components;
+    
+    if (atom.MOL_TYPE == "PROTEIN") {
+        if (is_backbone(atom.NAME)) {
+            components.bb_asa = base_asa;
+            if (is_polar_backbone(atom.NAME)) {
+                components.polar_asa = base_asa;
+                components.polar_bb_asa = base_asa;
+            } else if (is_hyd_backbone(atom.NAME)) {
+                components.hyd_asa = base_asa;
+                components.hyd_bb_asa = base_asa;
+            }
+        } else {
+            components.sc_asa = base_asa;
+            if (is_polar_sidechain(atom.NAME)) {
+                components.polar_asa = base_asa;
+                components.polar_sc_asa = base_asa;
+            } else if (is_hyd_sidechain(atom.NAME)) {
+                components.hyd_asa = base_asa;
+                components.hyd_sc_asa = base_asa;
+            }
+        }
+    } else if (atom.MOL_TYPE == "DNA" || atom.MOL_TYPE == "RNA") {
+        if (is_backbone(atom.NAME)) {
+            components.bb_asa = base_asa;
+            if (is_polar_backbone(atom.NAME)) {
+                components.polar_asa = base_asa;
+                components.polar_bb_asa = base_asa;
+            } else if (is_hyd_backbone(atom.NAME)) {
+                components.hyd_asa = base_asa;
+                components.hyd_bb_asa = base_asa;
+            }
+        } else if (is_in_major_groove(atom.RESN, atom.NAME)) {
+            components.majorgroove_asa = base_asa;
+            if (atom.POLAR) {
+                components.polar_asa = base_asa;
+                components.polar_majorgroove_asa = base_asa;
+            } else {
+                components.hyd_asa = base_asa;
+                components.hyd_majorgroove_asa = base_asa;
+            }
+        } else if (is_in_minor_groove(atom.RESN, atom.NAME)) {
+            components.minorgroove_asa = base_asa;
+            if (atom.POLAR) {
+                components.polar_asa = base_asa;
+                components.polar_minorgroove_asa = base_asa;
+            } else {
+                components.hyd_asa = base_asa;
+                components.hyd_minorgroove_asa = base_asa;
+            }
+        } else {
+            components.nogroove_asa = base_asa;
+            if (atom.POLAR) {
+                components.polar_asa = base_asa;
+                components.polar_nogroove_asa = base_asa;
+            } else {
+                components.hyd_asa = base_asa;
+                components.hyd_nogroove_asa = base_asa;
+            }
+        }
+    } else if (atom.MOL_TYPE == "LIGAND") {
+        components.lig_asa = base_asa;
+        if (atom.POLAR) {
+            components.lig_polar_asa = base_asa;
+        } else {
+            components.lig_hyd_asa = base_asa;
+        }
+    }
+    
+    return components;
+}
+
 
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix) {
     py::dict results;
     py::dict atom_data;
-    py::list residue_data;  // Keep as list
-    py::dict residue_index; // New index structure
+    py::list residue_data;
+    py::dict residue_index;
     
-    // collect per-residue data with contacts and overlaps
     std::map<std::tuple<std::string, std::string, int>, py::dict> residue_temp_data;
     
-    // Process atoms and aggregate residue data
     for (size_t i = 0; i < atoms.size(); ++i) {
         const auto& atom = atoms[i];
         if (!atom.ACTIVE) continue;
 
-        // Create atom data with new structure
+        float base_asa = atom.SASA;
+        auto components = classify_atom_asa(atom, base_asa);
+        
+        // Create atom data with all fields
         py::dict atom_info = py::dict(
             "name"_a=atom.NAME,
             "resname"_a=atom.RESN,
@@ -55,8 +100,33 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
             "coords"_a=py::make_tuple(atom.COORDS[0], atom.COORDS[1], atom.COORDS[2]),
             "sphere_area"_a=atom.AREA,
             "sasa"_a=atom.SASA,
+            "dsasa"_a=atom.EXT1,
+            "vdw"_a=atom.VDW,
             "polar"_a=atom.POLAR,
-            "charge"_a=atom.CHARGE
+            "charge"_a=atom.CHARGE,
+            
+            // All ASA components from our helper
+            "total_asa"_a=base_asa,
+            "bb_asa"_a=components.bb_asa,
+            "sc_asa"_a=components.sc_asa,
+            "majorgroove_asa"_a=components.majorgroove_asa,
+            "minorgroove_asa"_a=components.minorgroove_asa,
+            "nogroove_asa"_a=components.nogroove_asa,
+            "polar_asa"_a=components.polar_asa,
+            "polar_bb_asa"_a=components.polar_bb_asa,
+            "polar_sc_asa"_a=components.polar_sc_asa,
+            "polar_majorgroove_asa"_a=components.polar_majorgroove_asa,
+            "polar_minorgroove_asa"_a=components.polar_minorgroove_asa,
+            "polar_nogroove_asa"_a=components.polar_nogroove_asa,
+            "hyd_asa"_a=components.hyd_asa,
+            "hyd_bb_asa"_a=components.hyd_bb_asa,
+            "hyd_sc_asa"_a=components.hyd_sc_asa,
+            "hyd_majorgroove_asa"_a=components.hyd_majorgroove_asa,
+            "hyd_minorgroove_asa"_a=components.hyd_minorgroove_asa,
+            "hyd_nogroove_asa"_a=components.hyd_nogroove_asa,
+            "lig_asa"_a=components.lig_asa,
+            "lig_polar_asa"_a=components.lig_polar_asa,
+            "lig_hyd_asa"_a=components.lig_hyd_asa
         );
 
         // Add to atom_data
@@ -231,4 +301,88 @@ py::dict generate_intra_bsa_matrices(std::vector<atom_struct>& atoms) {
         "residue_labels"_a = COLres,
         "atom_types"_a = COLatomtype
     );
+}
+
+void calculate_contact_areas_from_overlaps(vector<atom_struct>& pdb) {
+    // Process each atom
+    for (size_t pos = 0; pos < pdb.size(); ++pos) {
+        auto& atom_i = pdb[pos];
+        if (!atom_i.ACTIVE) continue;
+
+        vector<uint32> o_atoms;
+        vector<uint32> interac_pos;
+        vector<char> valid_overlaps(atom_i.AREA_BURIED_BY_ATOM_vector.size(), true);
+
+        // Find interacting atoms with different STRUCT_TYPE
+        for (uint32 i = 0; i < atom_i.INTERACTION_P.size(); ++i) {
+            if (atom_i.STRUCT_TYPE != pdb[atom_i.INTERACTION_P[i]].STRUCT_TYPE) {
+                interac_pos.push_back(atom_i.INTERACTION_P[i]);
+            }
+        }
+
+        // Validate overlaps and collect unique interacting atoms
+        for (uint32 i = 0; i < atom_i.AREA_BURIED_BY_ATOM_vector.size(); ++i) {
+            for (uint32 k = 0; k < atom_i.AREA_BURIED_BY_ATOM_vector[i].size(); ++k) {
+                uint32 other = atom_i.AREA_BURIED_BY_ATOM_vector[i][k];
+                if (interac_pos.end() == find(interac_pos.begin(), interac_pos.end(), other)) {
+                    valid_overlaps[i] = false;
+                }
+            }
+            if (!valid_overlaps[i]) continue;
+
+            atom_i.AREA_BURIED_BY_ATOM_vector_valid.push_back(i);
+            for (uint32 j = 0; j < atom_i.AREA_BURIED_BY_ATOM_vector[i].size(); ++j) {
+                if (o_atoms.end() == find(o_atoms.begin(), o_atoms.end(), atom_i.AREA_BURIED_BY_ATOM_vector[i][j])) {
+                    o_atoms.push_back(atom_i.AREA_BURIED_BY_ATOM_vector[i][j]);
+                }
+            }
+        }
+
+        sort(o_atoms.begin(), o_atoms.end());
+
+        // Calculate EXT0 (total buried area)
+        atom_i.EXT0 = 0.0;
+        for (uint32 i = 0; i < atom_i.AREA_BURIED_BY_ATOM_area.size(); ++i) {
+            if (valid_overlaps[i]) {
+                atom_i.EXT0 += atom_i.AREA_BURIED_BY_ATOM_area[i];
+                atom_i.SASA = atom_i.AREA - atom_i.EXT0;  // Calculate SASA from buried area
+                atom_i.EXT1 = atom_i.EXT0;  // In decoupled mode, dSASA equals buried area
+            }
+        }
+
+        // Store interaction atoms and calculate contact areas
+        atom_i.INTERACTION_SASA_P = o_atoms;
+        
+        // Calculate contact areas
+        for (uint32 other_pos : o_atoms) {
+            float T_area = 0;
+            auto& atom_j = pdb[other_pos];
+            
+            for (uint32 j = 0; j < atom_i.AREA_BURIED_BY_ATOM_vector.size(); ++j) {
+                if (valid_overlaps[j] && 
+                    atom_i.AREA_BURIED_BY_ATOM_vector[j].end() != 
+                    find(atom_i.AREA_BURIED_BY_ATOM_vector[j].begin(), 
+                         atom_i.AREA_BURIED_BY_ATOM_vector[j].end(), 
+                         other_pos)) {
+                    T_area += atom_i.AREA_BURIED_BY_ATOM_area[j];
+                }
+            }
+            
+            atom_i.CONTACT_AREA[atom_j.ID] = T_area;
+        }
+
+        // Populate overlap tables
+        atom_i.ov_table.clear();
+        atom_i.ov_table_area.clear();
+        atom_i.ov_norm_area.clear();
+
+        for (uint32 i = 0; i < atom_i.AREA_BURIED_BY_ATOM_vector.size(); ++i) {
+            if (valid_overlaps[i]) {
+                atom_i.ov_table.push_back(atom_i.AREA_BURIED_BY_ATOM_vector[i]);
+                atom_i.ov_table_area.push_back(atom_i.AREA_BURIED_BY_ATOM_area[i]);
+                atom_i.ov_norm_area.push_back(atom_i.AREA_BURIED_BY_ATOM_area[i] / 
+                                            atom_i.AREA_BURIED_BY_ATOM_vector[i].size());
+            }
+        }
+    }
 }

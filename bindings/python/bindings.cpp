@@ -1,8 +1,6 @@
 #include "src/common.hpp"
 #include "src/atom_bindings.hpp"
-#include "src/simple_sasa.hpp"
-#include "src/generic_sasa.hpp"
-#include "src/decoupled_sasa.hpp"
+#include "src/sasa_calculators.hpp"
 #include "src/utils.hpp"
 
 PYBIND11_MODULE(dr_sasa_py, m) {

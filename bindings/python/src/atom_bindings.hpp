@@ -1,4 +1,3 @@
-#pragma once
 #include "common.hpp"
 
 // Function declaration for atom struct bindings

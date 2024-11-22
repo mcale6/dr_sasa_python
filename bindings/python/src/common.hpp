@@ -1,6 +1,4 @@
-// bindings/python/src/common.hpp
 #pragma once
-
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
@@ -27,13 +25,6 @@
 namespace py = pybind11;
 using namespace py::literals;
 
-static constexpr float DEFAULT_PROBE_RADIUS = 1.4f;
-
-// Common exceptions
-class SASAError : public std::runtime_error {
-    using std::runtime_error::runtime_error;
-};
-
 // Utility functions
 template<typename T>
 inline py::array_t<T> vector_to_numpy(const std::vector<T>& vec) {
@@ -45,4 +36,29 @@ inline std::vector<T> numpy_to_vector(const py::array_t<T>& arr) {
     py::buffer_info buf = arr.request();
     T* ptr = static_cast<T*>(buf.ptr);
     return std::vector<T>(ptr, ptr + buf.size);
+}
+
+// Convert 1D vector representing 2D matrix to 2D numpy array
+template<typename T>
+inline py::array_t<float> contact_matrix_to_numpy(
+    const std::vector<float>& matrix,
+    size_t rows,
+    size_t cols
+) {
+    if (matrix.size() != rows * cols) {
+        throw std::runtime_error("Matrix size doesn't match dimensions");
+    }
+    return py::array_t<float>({rows, cols}, matrix.data());
+}
+
+template<typename T>
+inline py::dict atom_contacts_to_dict(const atom_struct& atom) {
+    py::dict result;
+    for (const auto& [id, area] : atom.CONTACT_AREA) {
+        result[py::cast(id)] = py::dict(
+            "area"_a=area,
+            "distance"_a=atom.DISTANCES.count(id) ? atom.DISTANCES.at(id) : 0.0f
+        );
+    }
+    return result;
 }

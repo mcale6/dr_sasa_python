@@ -72,9 +72,10 @@ target_link_libraries(dr_sasa_core
 # Python module
 pybind11_add_module(dr_sasa_py MODULE
     bindings/python/src/atom_bindings.cpp
-    bindings/python/src/simple_sasa.cpp
-    bindings/python/src/generic_sasa.cpp
-    bindings/python/src/decoupled_sasa.cpp
+    #bindings/python/src/simple_sasa.cpp
+    #bindings/python/src/generic_sasa.cpp
+    #bindings/python/src/decoupled_sasa.cpp
+    bindings/python/src/sasa_calculators.cpp
     bindings/python/src/utils.cpp
     bindings/python/bindings.cpp
 )

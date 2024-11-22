@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 from pathlib import Path
-#import matplotlib.pyplot as plt
-#import seaborn as sns
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
     """Convert SASA calculation results to pandas DataFrames.
@@ -13,14 +13,14 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
         
     Returns:
         Dictionary of DataFrames:
-            - 'atoms': Atom-level data
+            - 'atoms': Atom-level data with detailed ASA components
             - 'residues': Residue-level data
             - 'contacts': Contact data (if present)
             - 'overlaps': Overlap data (if present)
     """
     dfs = {}
     
-    # Convert atom data to DataFrame
+    # Convert atom data to DataFrame with all ASA components
     atom_data = results['atom_data']
     atom_records = []
     
@@ -37,8 +37,35 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
             'z': atom_info['coords'][2],
             'sphere_area': atom_info['sphere_area'],
             'sasa': atom_info['sasa'],
+            'dsasa': atom_info.get('dsasa', None),  # New field
+            'vdw': atom_info.get('vdw', None),  # New field
             'polar': atom_info['polar'],
-            'charge': atom_info['charge']
+            'charge': atom_info['charge'],
+            
+            'total_asa': atom_info.get('total_asa', None),
+            'bb_asa': atom_info.get('bb_asa', None),
+            'sc_asa': atom_info.get('sc_asa', None),
+            'majorgroove_asa': atom_info.get('majorgroove_asa', None),
+            'minorgroove_asa': atom_info.get('minorgroove_asa', None),
+            'nogroove_asa': atom_info.get('nogroove_asa', None),
+            
+            'polar_asa': atom_info.get('polar_asa', None),
+            'polar_bb_asa': atom_info.get('polar_bb_asa', None),
+            'polar_sc_asa': atom_info.get('polar_sc_asa', None),
+            'polar_majorgroove_asa': atom_info.get('polar_majorgroove_asa', None),
+            'polar_minorgroove_asa': atom_info.get('polar_minorgroove_asa', None),
+            'polar_nogroove_asa': atom_info.get('polar_nogroove_asa', None),
+            
+            'hyd_asa': atom_info.get('hyd_asa', None),
+            'hyd_bb_asa': atom_info.get('hyd_bb_asa', None),
+            'hyd_sc_asa': atom_info.get('hyd_sc_asa', None),
+            'hyd_majorgroove_asa': atom_info.get('hyd_majorgroove_asa', None),
+            'hyd_minorgroove_asa': atom_info.get('hyd_minorgroove_asa', None),
+            'hyd_nogroove_asa': atom_info.get('hyd_nogroove_asa', None),
+            
+            'lig_asa': atom_info.get('lig_asa', None),
+            'lig_polar_asa': atom_info.get('lig_polar_asa', None),
+            'lig_hyd_asa': atom_info.get('lig_hyd_asa', None)
         }
         atom_records.append(record)
     

@@ -34,7 +34,7 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 - Contact area: $A_{contact} = A_{total} * (N_{contact}/N_{total})$
 - Overlap area: $A_{overlap}(G) = A_{total} * (N_{overlap}/N_{total})$
 
-The key difference is that GenericSolver computes overlaps by comparing states (original vs. new) while DecoupledSolver directly calculates overlaps within a single state, though both can output similar overlap and contact information in their results.
+The key difference is that GenericSolver computes overlaps by comparing states (original vs. new) while DecoupledSolver directly calculates overlaps within a single state, though both can output similar overlap and contact information in their results. DecoupledSolver doesnt not check wathever or not the atom is solvent exposed. 
 
 ### Point Transformations
 $$
