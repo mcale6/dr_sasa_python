@@ -45,7 +45,7 @@ $$
 $$
 
 ## In Development
-- Fixing Decoupled SASA
+- Fixing Result Dict
 - Input validation (e.g empty atoms)
 - CUDA support
 - Comprehensive contact surface analysis, plots
