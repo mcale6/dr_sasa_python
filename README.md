@@ -141,59 +141,140 @@ When `include_matrix=True` and `print_output=True`, additional 3 fields are incl
 ## Structure Overview
 ```python
 {
-    "atom_data": {
-        "1": {  # Atom ID as key
-            "name": "CA",           # Atom name
-            "resname": "ALA",       # Residue name
-            "chain": "A",           # Chain identifier
-            "resid": 1,            # Residue number
-            "struct_type": "protein", # Structure type
-            "coords": (23.456, 12.345, 34.567),  # XYZ coordinates
-            "sphere_area": 120.5,   # Surface area
-            "sasa": 45.6,          # Solvent accessible surface area
-            "polar": True,         # Polarity flag
-            "charge": 0.0          # Atomic charge
-        },
-        # ... more atoms
-    },
-
-    "residue_data": [  # List of residues in order
-        {
-            "chain": "A",          # Chain identifier
-            "resname": "ALA",      # Residue name
-            "resid": 1,           # Residue number
-            "total_sasa": 92.3,    # Total SASA for residue
-            "total_area": 185.6,   # Total surface area
-            "dsasa": 30.76,        # Difference from standard SASA
-            "n_atoms": 5,          # Number of atoms in residue
-            "center": (23.1, 12.8, 34.2),  # Center of mass
+    "atoms": {
+        "1": {  # Still ID-keyed for compatibility
+            # Basic Properties
+            "name": "N",
+            "resid": 1,
+            "resname": "MET",
+            "chain": "B",
+            "index": 0,
+            "coords": (13.117, 2.545, -44.880),
             
-            "contacts": {          # Contacts with other atoms
-                "2": {             # Contact atom ID
-                    "struct_type": "protein",
-                    "contact_area": 15.3,
-                    "distance": 3.8
-                }
-                # ... more contacts
+            # Surface Analysis
+            "surface": {
+                "sphere_area": 116.899,
+                "sasa": 50.828,
+                "buried_area": 66.071,
+                "contact_area": 45.2,
+                "dsasa": 0.0,
             },
             
-            "overlaps": [         # List of overlap groups
-                {
-                    "atoms": [2, 3, 4],     # Overlapping atom IDs
-                    "overlap_area": 25.6,    # Area of overlap
-                    "normalized_area": 0.212, # Normalized overlap area
-                    "buried_area": 94.9      # Buried surface area
-                }
-                # ... more overlaps
-            ]
-        }
-        # ... more residues
-    ],
+            # Physical Properties
+            "properties": {
+                "vdw": 1.65,
+                "polar": 1,
+                "charge": "",
+                "struct_type": "PROTEIN"
+            },
 
-    "residue_index": {  # Maps residue identifiers to list indices
-        "A_ALA_1": 0,   # Format: "chain_resname_resid": index
-        "A_GLY_2": 1,
-        # ... more residue indices
+            # Contacts grouped by type
+            "contacts": {
+                "bonded": ["2", "5"],     # Connected atoms
+                "nonbonded": {            # Non-bonded interactions
+                    "2": {
+                        "area": 15.3,
+                        "distance": 3.8
+                    }
+                },
+                "overlap_groups": [        # Groups of overlapping atoms
+                    {
+                        "atoms": ["2", "3"],
+                        "area": 25.6,
+                        "normalized_area": 0.212,
+                        "buried_area": 94.9
+                    }
+                ]
+            }
+        }
+    },
+
+    "residues": {
+        "B_MET_1": {  # Chain_Resname_Resid as key
+            "identifiers": {
+                "chain": "B",
+                "name": "MET",
+                "number": 1,
+                "index": 0
+            },
+            
+            "structure": {
+                "atoms": ["1", "2", "3"],  # Atom IDs
+                "center": (13.295, 2.654, -43.435),
+                "n_atoms": 3
+            },
+
+            "surface": {
+                "total_sasa": 92.3,
+                "total_area": 185.6,
+                "standard_sasa": 191.547,
+                "dsasa": 99.247,
+                
+                # ASA Components organized by type
+                "backbone": {
+                    "total": 50.828,
+                    "polar": 50.828,
+                    "hydrophobic": 0.0
+                },
+                "sidechain": {
+                    "total": 41.472,
+                    "polar": 0.0,
+                    "hydrophobic": 41.472
+                },
+                "groove": {  # For nucleic acids
+                    "major": {
+                        "total": 0.0,
+                        "polar": 0.0,
+                        "hydrophobic": 0.0
+                    },
+                    "minor": {
+                        "total": 0.0,
+                        "polar": 0.0,
+                        "hydrophobic": 0.0
+                    },
+                    "none": {
+                        "total": 0.0,
+                        "polar": 0.0,
+                        "hydrophobic": 0.0
+                    }
+                }
+            },
+
+            "contacts": {
+                "residues": ["B_ALA_2", "B_VAL_3"],  # Contacting residues
+                "interface_area": 145.6              # Total interface area
+            }
+        }
+    },
+
+    "chains": {
+        "B": {
+            "type": "PROTEIN",
+            "residues": ["B_MET_1", "B_ALA_2"],  # Residue IDs
+            "surface": {
+                "total_sasa": 1234.5,
+                "buried_area": 567.8
+            }
+        }
+    },
+
+    "lookup": {
+        "atoms": {
+            "by_id": {"1": 0},            # ID to index
+            "by_residue": {"B_MET_1": ["1", "2", "3"]},  # Residue to atom IDs
+            "by_chain": {"B": ["1", "2", "3"]}           # Chain to atom IDs
+        },
+        "residues": {
+            "by_chain": {"B": ["B_MET_1", "B_ALA_2"]}   # Chain to residue IDs
+        }
+    },
+
+    "metadata": {
+        "total_atoms": 100,
+        "total_residues": 15,
+        "chains": ["A", "B"],
+        "types": ["PROTEIN", "DNA"],
+        "probe_radius": 1.4
     }
 }
 ```
