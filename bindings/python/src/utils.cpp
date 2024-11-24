@@ -74,13 +74,13 @@ ASAComponents classify_atom_asa(const atom_struct& atom, float base_asa) {
     return components;
 }
 
-
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix) {
     py::dict results;
     py::dict atoms_dict;
     py::dict residues_dict;
     py::dict chains_dict;
     py::dict lookup;
+    std::set<std::string> mol_types;
 
     // Initialize lookup tables
     py::dict atom_lookup;
@@ -94,70 +94,88 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
     std::map<std::string, std::vector<std::string>> chain_to_atoms;
     std::map<std::string, std::vector<std::string>> chain_to_residues;
     std::map<std::string, std::vector<std::string>> residue_to_atoms;
-    std::set<std::string> mol_types;
     
     // First pass: Process atoms and build initial lookup tables
     for (size_t i = 0; i < atoms.size(); ++i) {
         const auto& atom = atoms[i];
         if (!atom.ACTIVE) continue;
 
-        std::string atom_id = std::to_string(atom.ID);
-        std::string residue_id = atom.CHAIN + "_" + atom.RESN + "_" + std::to_string(atom.RESI);
-        
-        // Track molecule types
+        // Ensure chain ID is properly handled
+        std::string chain = atom.CHAIN;
+        if (chain.empty()) {
+            chain = "_";
+        }
+
         mol_types.insert(atom.MOL_TYPE);
+        std::string atom_id = std::to_string(atom.ID);
+        std::string residue_id = chain + "_" + atom.RESN + "_" + std::to_string(atom.RESI);
         
-        // Create organized contact information
+        // Process contacts
         py::dict nonbonded;
         for (uint32_t pos : atom.INTERACTION_SASA_P) {
+            if (pos >= atoms.size()) continue;
+
             const auto& other_atom = atoms[pos];
             std::string other_id = std::to_string(other_atom.ID);
             
-            nonbonded[py::str(other_id)] = py::dict(
-                "area"_a=atom.CONTACT_AREA.at(other_atom.ID),
-                "distance"_a=atom.DISTANCES.at(pos)
-            );
+            if (atom.CONTACT_AREA.count(other_atom.ID) && atom.DISTANCES.count(pos)) {
+                nonbonded[py::str(other_id)] = py::dict(
+                    "area"_a=atom.CONTACT_AREA.at(other_atom.ID),
+                    "distance"_a=atom.DISTANCES.at(pos)
+                );
+            }
         }
         
         // Process overlaps
         py::list overlap_groups;
         for (size_t j = 0; j < atom.ov_table.size(); ++j) {
+            if (j >= atom.AREA_BURIED_BY_ATOM_area.size()) break;
+
             const auto& overlap_set = atom.ov_table[j];
             std::vector<std::string> overlap_atoms;
+            
+            bool valid_overlap = true;
             for (uint32_t pos : overlap_set) {
+                if (pos >= atoms.size()) {
+                    valid_overlap = false;
+                    break;
+                }
                 overlap_atoms.push_back(std::to_string(atoms[pos].ID));
             }
             
-            overlap_groups.append(py::dict(
-                "atoms"_a=overlap_atoms,
-                "area"_a=atom.ov_table_area[j],
-                "normalized_area"_a=atom.ov_norm_area[j],
-                "buried_area"_a=atom.AREA_BURIED_BY_ATOM_area[j]
-            ));
+            if (!valid_overlap) continue;
+            
+            float buried_area = atom.AREA_BURIED_BY_ATOM_area[j];
+            float norm_area = overlap_set.empty() ? 0.0f : buried_area / overlap_set.size();
+
+            if (j < atom.ov_table_area.size()) {
+                overlap_groups.append(py::dict(
+                    "atoms"_a=overlap_atoms,
+                    "area"_a=atom.ov_table_area[j],
+                    "normalized_area"_a=norm_area,
+                    "buried_area"_a=buried_area
+                ));
+            }
         }
 
-        // Calculate total areas
-        float total_buried_area = std::accumulate(atom.AREA_BURIED_BY_ATOM_area.begin(), 
-                                                atom.AREA_BURIED_BY_ATOM_area.end(), 0.0f);
+        // Calculate surface values
+        float total_buried_area = 0.0f;
+        for (const auto& area : atom.AREA_BURIED_BY_ATOM_area) {
+            total_buried_area += area;
+        }
+
         float total_contact_area = 0.0f;
         for (const auto& [_, area] : atom.CONTACT_AREA) {
             total_contact_area += area;
         }
-        
-        // Create contacts dictionary
-        py::dict contacts = py::dict(
-            "bonded"_a=py::list(),
-            "nonbonded"_a=nonbonded,
-            "overlap_groups"_a=overlap_groups
-        );
 
-        // Create organized atom entry
+        // Create atom entry
         atoms_dict[py::str(atom_id)] = py::dict(
             // Basic Properties
             "name"_a=atom.NAME,
             "resid"_a=atom.RESI,
             "resname"_a=atom.RESN,
-            "chain"_a=atom.CHAIN,
+            "chain"_a=chain,
             "index"_a=i,
             "coords"_a=py::make_tuple(atom.COORDS[0], atom.COORDS[1], atom.COORDS[2]),
             
@@ -179,23 +197,28 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
             ),
             
             // Contacts
-            "contacts"_a=contacts
+            "contacts"_a=py::dict(
+                "bonded"_a=py::list(),
+                "nonbonded"_a=nonbonded,
+                "overlap_groups"_a=overlap_groups
+            )
         );
         
         // Update lookup tables
-        chain_to_atoms[atom.CHAIN].push_back(atom_id);
+        chain_to_atoms[chain].push_back(atom_id);
         residue_to_atoms[residue_id].push_back(atom_id);
     }
     
     // Second pass: Build residue information
     for (const auto& [residue_id, atom_ids] : residue_to_atoms) {
+        if (atom_ids.empty()) continue;
+
         float total_sasa = 0.0f;
         float total_area = 0.0f;
         std::vector<float> center = {0.0f, 0.0f, 0.0f};
         
         // Get first atom to extract residue info
-        const auto& first_atom_id = atom_ids[0];
-        const auto& first_atom = atoms[std::stoi(first_atom_id) - 1];
+        const auto& first_atom = atoms[std::stoi(atom_ids[0]) - 1];
         
         // Calculate standard SASA
         auto it = STANDARD_SASA_VALUES.find(first_atom.RESN);
@@ -210,7 +233,6 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
             total_sasa += atom.SASA;
             total_area += atom.AREA;
             
-            // Update center
             center[0] += atom.COORDS[0];
             center[1] += atom.COORDS[1];
             center[2] += atom.COORDS[2];
@@ -241,9 +263,10 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
         
         // Average the center
         float n_atoms = static_cast<float>(atom_ids.size());
-        center[0] /= n_atoms;
-        center[1] /= n_atoms;
-        center[2] /= n_atoms;
+        for (auto& coord : center) {
+            coord /= n_atoms;
+        }
+        
         residues_dict[py::str(residue_id)] = py::dict(
             "identifiers"_a=py::dict(
                 "chain"_a=first_atom.CHAIN,
@@ -295,62 +318,65 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
             )
         );
         
-        // Update chain to residue mapping
+        // Update chain mapping
         chain_to_residues[first_atom.CHAIN].push_back(residue_id);
     }
     
     // Build chain information
     for (const auto& [chain_id, residue_ids] : chain_to_residues) {
         float total_sasa = 0.0f;
-        float buried_area = 0.0f;
-        
-        // Calculate chain statistics
         for (const auto& res_id : residue_ids) {
             auto res = residues_dict[py::str(res_id)];
             total_sasa += res["surface"]["total_sasa"].cast<float>();
         }
         
-        // Get chain type from first atom in chain
-        const auto& first_atom_id = chain_to_atoms[chain_id][0];
-        const auto& first_atom = atoms[std::stoi(first_atom_id) - 1];
+        // Get chain type from first atom
+        std::string chain_type;
+        if (!chain_to_atoms[chain_id].empty()) {
+            const auto& first_atom_id = chain_to_atoms[chain_id][0];
+            const auto& first_atom = atoms[std::stoi(first_atom_id) - 1];
+            chain_type = first_atom.MOL_TYPE;
+        }
         
         chains_dict[py::str(chain_id)] = py::dict(
-            "type"_a=first_atom.MOL_TYPE,
+            "type"_a=chain_type,
             "residues"_a=residue_ids,
             "surface"_a=py::dict(
                 "total_sasa"_a=total_sasa,
-                "buried_area"_a=buried_area
+                "buried_area"_a=0.0f  // Will be calculated if needed
             )
         );
     }
     
-    // Build final lookup tables
+    // Build lookup tables
     for (const auto& [chain_id, atom_ids] : chain_to_atoms) {
         atom_lookup["by_chain"][py::str(chain_id)] = atom_ids;
     }
+    
     for (const auto& [residue_id, atom_ids] : residue_to_atoms) {
         atom_lookup["by_residue"][py::str(residue_id)] = atom_ids;
     }
+    
     for (size_t i = 0; i < atoms.size(); ++i) {
         if (!atoms[i].ACTIVE) continue;
         atom_lookup["by_id"][py::str(std::to_string(atoms[i].ID))] = i;
     }
+    
     for (const auto& [chain_id, residue_ids] : chain_to_residues) {
         res_lookup["by_chain"][py::str(chain_id)] = residue_ids;
     }
 
-    // Extract chain IDs for metadata
+    // Create metadata
     std::vector<std::string> chain_ids;
     for (const auto& [chain_id, _] : chain_to_residues) {
         chain_ids.push_back(chain_id);
     }
     
-    // Create metadata
     py::dict metadata = py::dict(
         "total_atoms"_a=atoms.size(),
         "total_residues"_a=residues_dict.size(),
         "chains"_a=chain_ids,
-        "types"_a=std::vector<std::string>(mol_types.begin(), mol_types.end()),
+        "types"_a=mol_types,
         "probe_radius"_a=DEFAULT_PROBE_RADIUS
     );
     

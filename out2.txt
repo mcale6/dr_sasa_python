@@ -1,0 +1,1267 @@
+#include "src/common.hpp"
+#include "src/atom_bindings.hpp"
+#include "src/sasa_calculators.hpp"
+#include "src/utils.hpp"
+
+PYBIND11_MODULE(dr_sasa_py, m) {
+    m.doc() = R"pbdoc(
+        DR_SASA Python Bindings
+        ----------------------
+        
+        This module provides Python bindings for the DR_SASA library,
+        a fast and accurate solvent accessible surface area calculator.
+    )pbdoc";
+    
+    py::register_exception<SASAError>(m, "SASAError");  // Register custom exceptions
+    bind_atom_struct(m); // Bind core data structures
+
+    py::class_<SimpleSASA>(m, "SimpleSASA")
+        .def(py::init<float, int>(),
+             py::arg("probe_radius") = DEFAULT_PROBE_RADIUS,
+             py::arg("compute_mode") = 0)
+        .def("calculate", &SimpleSASA::calculate,
+             py::arg("pdb_file"),
+             py::arg("print_output") = false,
+             py::arg("output_name") = "simple",
+             R"pbdoc(
+                Calculate SASA from PDB file.
+
+                Args:
+                    pdb_file (str): Path to PDB file
+                    print_output (bool): Whether to generate printed output
+                    output_name (str): Base name for output files
+
+                Returns:
+                    dict: Results including SASA values and printed output if requested
+             )pbdoc")
+        .def("calculate_from_atoms", &SimpleSASA::calculate_from_atoms,
+             py::arg("atoms"),
+             py::arg("print_output") = false,
+             py::arg("output_name") = "simple",
+             "Calculate SASA from list of atom_struct objects");
+
+    py::class_<GenericSASA>(m, "GenericSASA")
+        .def(py::init<float, int>(),
+             py::arg("probe_radius") = DEFAULT_PROBE_RADIUS,
+             py::arg("compute_mode") = 0)
+        .def("calculate", &GenericSASA::calculate,
+             py::arg("pdb_file"),
+             py::arg("chains") = std::vector<std::vector<std::string>>(),
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "generic",
+             R"pbdoc(
+                Calculate SASA with chain-based analysis.
+
+                Args:
+                    pdb_file (str): Path to PDB file
+                    chains (List[List[str]]): Chain selections
+                    include_matrix (bool): Whether to include matrix analysis
+                    print_output (bool): Whether to generate printed output
+                    output_name (str): Base name for output files
+
+                Returns:
+                    dict: Results including SASA values and printed output if requested
+             )pbdoc")
+        .def("calculate_from_atoms", &GenericSASA::calculate_from_atoms,
+             py::arg("atoms"),
+             py::arg("chains") = std::vector<std::vector<std::string>>(),
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "generic",
+             "Calculate SASA from list of atom_struct objects");
+
+    py::class_<DecoupledSASA>(m, "DecoupledSASA")
+        .def(py::init<float, int>(),
+             py::arg("probe_radius") = DEFAULT_PROBE_RADIUS,
+             py::arg("compute_mode") = 0)
+        .def("calculate", &DecoupledSASA::calculate,
+             py::arg("pdb_file"),
+             py::arg("chains") = std::vector<std::vector<std::string>>(),
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "decoupled",
+             R"pbdoc(
+                Calculate decoupled SASA analysis.
+
+                Args:
+                    pdb_file (str): Path to PDB file
+                    chains (List[List[str]]): Chain selections
+                    include_matrix (bool): Whether to include matrix analysis
+                    print_output (bool): Whether to generate printed output
+                    output_name (str): Base name for output files
+
+                Returns:
+                    dict: Results including SASA values and printed output if requested
+             )pbdoc")
+        .def("calculate_from_atoms", &DecoupledSASA::calculate_from_atoms,
+             py::arg("atoms"),
+             py::arg("chains") = std::vector<std::vector<std::string>>(),
+             py::arg("include_matrix") = true,
+             py::arg("print_output") = false,
+             py::arg("output_name") = "decoupled",
+             "Calculate SASA from list of atom_struct objects");
+
+    // Module attributes
+    m.attr("__version__") = "0.5.0";
+    m.attr("__author__") = "Original: Ribeiro J., Ríos-Vera C., Melo F., Schüller A.";
+    m.attr("DEFAULT_PROBE_RADIUS") = DEFAULT_PROBE_RADIUS;
+}
+#include "atom_bindings.hpp"
+#include "common.hpp"
+
+namespace py = pybind11;
+
+void bind_atom_struct(py::module& m) {
+    py::class_<atom_struct>(m, "AtomStruct")
+        // Constructor with default values
+        .def(py::init<uint32_t, int, std::string, std::string, std::string, 
+                     std::string, std::string, std::string, std::string,
+                     float, float, float, std::string, float, float, std::string>(),
+            py::arg("id") = 0,                    // Default ID
+            py::arg("resi") = 0,                  // Default residue number
+            py::arg("icode") = "",                // Default insertion code
+            py::arg("name") = "",                 // Default atom name
+            py::arg("resn") = "",                 // Default residue name
+            py::arg("chain") = "",                // Default chain ID
+            py::arg("element") = "",              // Default element
+            py::arg("structure") = "",            // Default structure
+            py::arg("mol_type") = "ATOM",         // Default molecule type
+            py::arg("x") = 0.0f,                  // Default x coordinate
+            py::arg("y") = 0.0f,                  // Default y coordinate
+            py::arg("z") = 0.0f,                  // Default z coordinate
+            py::arg("altloc") = "",               // Default alternate location
+            py::arg("occupancy") = 1.0f,          // Default occupancy
+            py::arg("tfactor") = 0.0f,            // Default temperature factor
+            py::arg("charge") = "")               // Default charge
+        
+        // Essential properties for basic functionality
+        .def_readwrite("ID", &atom_struct::ID)                    // Atom ID
+        .def_readwrite("NAME", &atom_struct::NAME)                // Atom name (e.g., "CA")
+        .def_readwrite("RESN", &atom_struct::RESN)                // Residue name (e.g., "ALA")
+        .def_readwrite("CHAIN", &atom_struct::CHAIN)              // Chain identifier
+        .def_readwrite("RESI", &atom_struct::RESI)                // Residue number
+        .def_readwrite("iCODE", &atom_struct::iCODE)             // Insertion code
+        .def_readwrite("SASA", &atom_struct::SASA)               // Solvent accessible surface area
+        .def_readwrite("MOL_TYPE", &atom_struct::MOL_TYPE)       // Molecule type
+        .def_readwrite("STRUCT_TYPE", &atom_struct::STRUCT_TYPE)  // Structure type
+        .def_readwrite("ELEMENT", &atom_struct::ELEMENT)          // Chemical element
+        .def_readwrite("HETATM", &atom_struct::HETATM)           // HETATM flag
+        .def_readwrite("ACTIVE", &atom_struct::ACTIVE)           // Active flag
+        
+        // Properties for coordinates and measurements
+        .def_property("COORDS",
+            [](const atom_struct& a) {
+                return py::make_tuple(a.COORDS[0], a.COORDS[1], a.COORDS[2]);
+            },
+            [](atom_struct& a, py::sequence coords) {
+                if (py::len(coords) != 3) {
+                    throw std::runtime_error("Coordinates must have exactly 3 elements");
+                }
+                std::vector<float> new_coords = {
+                    coords[0].cast<float>(),
+                    coords[1].cast<float>(),
+                    coords[2].cast<float>()
+                };
+                a.COORDS = new_coords;
+            })
+        .def_property("COORDS",
+            [](const atom_struct& a) {
+                return py::array_t<float>({3}, a.COORDS.data());
+            },
+            [](atom_struct& a, py::array_t<float> array) {
+                if (array.size() != 3) {
+                    throw std::runtime_error("Coordinates must be length 3");
+                }
+                a.COORDS = numpy_to_vector(array);
+            })
+        .def_property_readonly("contacts",
+            [](const atom_struct& a) {
+                return atom_contacts_to_dict<float>(a);  // Specify template parameter
+            })
+        .def_property_readonly("interaction_partners",
+            [](const atom_struct& a) {
+                return py::array_t<uint32_t>(
+                    a.INTERACTION_SASA_P.size(),
+                    a.INTERACTION_SASA_P.data()
+                );
+            })
+        .def_readwrite("VDW", &atom_struct::VDW)                 // Van der Waals radius
+        .def_readwrite("AREA", &atom_struct::AREA)               // Surface area
+        
+        // Additional properties
+        .def_readwrite("ALTLOC", &atom_struct::ALTLOC)           // Alternate location
+        .def_readwrite("OCCUPANCY", &atom_struct::OCCUPANCY)     // Occupancy
+        .def_readwrite("TFACTOR", &atom_struct::TFACTOR)         // Temperature factor
+        .def_readwrite("CHARGE", &atom_struct::CHARGE)           // Charge
+        
+        // Methods
+        .def("sID", &atom_struct::sID)       // Get string ID
+        .def("rsID", &atom_struct::rsID)     // Get residue string ID
+        .def("print", [](const atom_struct& self) {
+            atom_struct copy = self;
+            return copy.print();
+        })
+        
+        // String representation
+        .def("__repr__", [](const atom_struct& self) {
+            atom_struct copy = self;
+            return "<AtomStruct: " + copy.print() + ">";
+        });
+}#include "common.hpp"
+
+// Function declaration for atom struct bindings
+void bind_atom_struct(pybind11::module& m);#pragma once
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/numpy.h>
+#include <string>
+#include <vector>
+#include <map>
+#include <set>
+#include <stdexcept>
+#include <cstdint>
+#include <algorithm>
+#include <cmath>
+#include <filesystem>
+#include <sstream>
+
+#include "stdafx.h"
+#include "atom_struct.h"
+#include "PDBparser2.h"
+#include "SetRadius.h"
+#include "SurfaceSolverCL.h"
+#include "SurfaceSolverOnTheFly.h"
+#include "histogram.h"
+#include "SolverDataProcessing.h"
+
+namespace py = pybind11;
+using namespace py::literals;
+
+// Utility functions
+template<typename T>
+inline py::array_t<T> vector_to_numpy(const std::vector<T>& vec) {
+    return py::array_t<T>(vec.size(), vec.data());
+}
+
+template<typename T>
+inline std::vector<T> numpy_to_vector(const py::array_t<T>& arr) {
+    py::buffer_info buf = arr.request();
+    T* ptr = static_cast<T*>(buf.ptr);
+    return std::vector<T>(ptr, ptr + buf.size);
+}
+
+// Convert 1D vector representing 2D matrix to 2D numpy array
+template<typename T>
+inline py::array_t<float> contact_matrix_to_numpy(
+    const std::vector<float>& matrix,
+    size_t rows,
+    size_t cols
+) {
+    if (matrix.size() != rows * cols) {
+        throw std::runtime_error("Matrix size doesn't match dimensions");
+    }
+    return py::array_t<float>({rows, cols}, matrix.data());
+}
+
+template<typename T>
+inline py::dict atom_contacts_to_dict(const atom_struct& atom) {
+    py::dict result;
+    for (const auto& [id, area] : atom.CONTACT_AREA) {
+        result[py::cast(id)] = py::dict(
+            "area"_a=area,
+            "distance"_a=atom.DISTANCES.count(id) ? atom.DISTANCES.at(id) : 0.0f
+        );
+    }
+    return result;
+}#pragma once
+#include "common.hpp"
+
+// Core constants
+inline constexpr float DEFAULT_PROBE_RADIUS = 1.4f;
+
+// Standard SASA reference values
+inline const std::map<std::string, float> STANDARD_SASA_VALUES = {
+    {"ALA", 92.40211452},
+    {"GLN", 184.71688},
+    {"TRP", 235.3483229},
+    {"SER", 122.353095},
+    {"ARG", 219.941475},
+    {"ILE", 158.07277},
+    {"ASN", 146.06073},
+    {"ASP", 154.71124},
+    {"HIS", 194.617376},
+    {"MET", 191.547244},
+    {"LYS", 201.689792},
+    {"LEU", 169.04496452},
+    {"THR", 145.526463},
+    {"PHE", 201.7065},
+    {"TYR", 209.07715},
+    {"GLU", 160.482561},
+    {"CYS", 130.28853},
+    {"PRO", 126.877028},
+    {"GLY", 80.23533},
+    {"VAL", 138.90233},
+    {"A", 163.5912717},
+    {"C", 162.86302775},
+    {"T", 173.03036075},
+    {"G", 164.253836},
+    {"DA", 163.5912717},
+    {"DC", 162.86302775},
+    {"DT", 173.03036075},
+    {"DG", 164.253836}
+};
+
+// Classification constants
+inline const std::vector<std::string> BACKBONE_ATOMS = {
+    "C", "CA", "N", "O", "P", "OP1", "OP2", "O3'", "O5'", "C3'", "C4'", "C5'"
+};
+
+inline const std::vector<std::string> POLAR_BACKBONE = {
+    "N", "O", "OP1", "OP2", "O3'", "O5'"
+};
+
+inline const std::vector<std::string> HYD_BACKBONE = {
+    "C", "CA", "C3'", "C4'", "C5'"
+};
+
+inline const std::vector<std::string> POLAR_SIDECHAIN = {
+    "NZ", "OG", "OG1", "ND1", "NE2", "OE1", "OE2", "NE", "NH1", "NH2",
+    "OD1", "OD2", "OH", "SE", "SG", "N1", "N2", "N3", "N4", "N6", "N7", "N9",
+    "O2", "O4", "O6"
+};
+
+inline const std::vector<std::string> HYD_SIDECHAIN = {
+    "CB", "CG", "CG1", "CG2", "CD", "CD1", "CD2", "CE", "CE1", "CE2", "CE3",
+    "CZ", "CZ2", "CZ3", "CH2", "C2", "C4", "C5", "C6", "C8"
+};
+
+inline const std::map<std::string, std::vector<std::string>> MAJOR_GROOVE = {
+    {"A", {"N6", "N7", "C8", "C5"}},
+    {"G", {"O6", "N7", "C8", "C5"}},
+    {"C", {"N4", "C5", "C6"}},
+    {"T", {"O4", "C5", "C6", "C7"}},
+    {"DA", {"N6", "N7", "C8", "C5"}},
+    {"DG", {"O6", "N7", "C8", "C5"}},
+    {"DC", {"N4", "C5", "C6"}},
+    {"DT", {"O4", "C5", "C6", "C7"}}
+};
+
+inline const std::map<std::string, std::vector<std::string>> MINOR_GROOVE = {
+    {"A", {"N1", "C2", "N3"}},
+    {"G", {"N2", "N3", "C2"}},
+    {"C", {"O2", "N3", "C2"}},
+    {"T", {"O2", "N3", "C2"}},
+    {"DA", {"N1", "C2", "N3"}},
+    {"DG", {"N2", "N3", "C2"}},
+    {"DC", {"O2", "N3", "C2"}},
+    {"DT", {"O2", "N3", "C2"}}
+};
+#include "common.hpp"
+#include <stdexcept>
+
+class SASAError : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+#include "common.hpp"
+#include "sasa_calculators.hpp"
+#include <sstream>
+
+
+// SimpleSASA Implementation
+py::dict SimpleSASA::calculate(const std::string& pdb_file,
+                             bool print_output,
+                             const std::string& output_name) {
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw SASAError("No atoms loaded from PDB file");
+    }
+    std::cerr.rdbuf(old_buf);
+    
+    return calculate_from_atoms(std::move(atoms), print_output, output_name);
+}
+
+py::dict SimpleSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
+                                        bool print_output,
+                                        const std::string& output_name) {
+    if (atoms.empty()) {
+        throw SASAError("No atoms provided");
+    }
+
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    std::cerr.rdbuf(old_buf);
+    
+    SolveInteractions(atoms, 0);
+    SimpleSolverCL(atoms, vdw_radii_.Points, compute_mode_);
+    
+    if (print_output) {
+        int atmasa_sasa = 0;
+        std::stringstream base_output;
+        base_output << output_name;
+        
+        // Output .asa.pdb file
+        std::string asa_file = base_output.str() + ".asa.pdb";
+        PrintSASAResults(atoms, asa_file);
+        
+        // Output .atmasa file
+        std::string atmasa_file = base_output.str() + ".atmasa";
+        PrintSplitAsaAtom(atoms, atmasa_file, atmasa_sasa);
+    }
+    
+    return create_analysis_results(atoms, false);
+}
+
+// GenericSASA Implementation
+py::dict GenericSASA::calculate(const std::string& pdb_file,
+                               std::vector<std::vector<std::string>>& chains,
+                               bool include_matrix,
+                               bool print_output,
+                               const std::string& output_name) {
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw SASAError("No atoms loaded from PDB file");
+    }
+    std::cerr.rdbuf(old_buf);
+    
+    return calculate_from_atoms(std::move(atoms), chains, include_matrix, print_output, output_name);
+}
+
+py::dict GenericSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
+                                         std::vector<std::vector<std::string>>& chains,
+                                         bool include_matrix,
+                                         bool print_output,
+                                         const std::string& output_name) {
+    if (atoms.empty()) {
+        throw SASAError("No atoms provided");
+    }
+
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    std::cerr.rdbuf(old_buf);
+    
+    int Imode;
+    if (chains.size() <= 1) {
+        std::set<std::string> proteinChains;
+        for (const auto& atom: atoms) {
+            if (atom.MOL_TYPE == "PROTEIN") {
+                proteinChains.insert(atom.CHAIN);
+            } else {
+                proteinChains.clear();
+                break;
+            }
+        }
+        if (proteinChains.size() == 2) {
+            Imode = 5;
+            std::vector<std::string> chain_vec(proteinChains.begin(), proteinChains.end());
+            chains = {std::vector<std::string>{chain_vec[0]}, std::vector<std::string>{chain_vec[1]}};
+        } else {
+            Imode = 4;
+        }
+    } else {
+        Imode = 1;
+    }
+
+    if (!chains.empty()) {
+        ChainSelector(chains, atoms);
+    }
+
+    Generic_Solver(atoms, vdw_radii_.Points, chains, Imode, compute_mode_);
+    GeneratePairInteractionData(atoms);
+    CalculateDNA_ProtInteractions(atoms, compute_mode_);
+
+    py::dict results = create_analysis_results(atoms, include_matrix);
+    
+    if (include_matrix) {
+        results["inter_bsa_matrix"] = generate_inter_bsa_matrices(atoms);
+        results["intra_bsa_matrix"] = generate_intra_bsa_matrices(atoms);
+    }
+
+    if (print_output) {
+        int atmasa_bsa = 1;
+        int atmasa_sasa = 0;
+        std::stringstream base_output;
+        base_output << output_name;
+        
+        std::string overlaps_file = base_output.str() + ".overlaps";
+        PrintDNA_ProtResults(atoms, overlaps_file);
+        
+        std::string dsasa_file = base_output.str() + ".dsasa.pdb";
+        PrintDSASAResults(atoms, dsasa_file);
+        
+        std::string datmasa_file = base_output.str() + ".datmasa";
+        PrintSplitAsaAtom(atoms, datmasa_file, atmasa_bsa);
+        
+        std::string asa_file = base_output.str() + ".asa.pdb";
+        PrintSASAResults(atoms, asa_file);
+        
+        std::string atmasa_file = base_output.str() + ".atmasa";
+        PrintSplitAsaAtom(atoms, atmasa_file, atmasa_sasa);
+        
+        if(include_matrix) {
+            std::string atom_matrix_file = base_output.str() + ".by_atom.tsv";
+            PrintDNA_ProtResultsByAtomMatrix(atoms, atom_matrix_file, 0);
+            
+            std::string matrix_inside_file = base_output.str() + ".matrix";
+            Print_MatrixInsideAtom(atoms, matrix_inside_file, 0);
+        }
+        results["printed_output"] = base_output.str();
+    }
+    
+    return results;
+}
+
+// DecoupledSASA Implementation
+py::dict DecoupledSASA::calculate(const std::string& pdb_file,
+                                 std::vector<std::vector<std::string>>& chains,
+                                 bool include_matrix,
+                                 bool print_output,
+                                 const std::string& output_name) {
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
+    auto atoms = PDBparser(pdb_file, "", true);
+    if (atoms.empty()) {
+        throw SASAError("No atoms loaded from PDB file");
+    }
+    std::cerr.rdbuf(old_buf);
+    
+    return calculate_from_atoms(std::move(atoms), chains, include_matrix, print_output, output_name);
+}
+
+py::dict DecoupledSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
+                                           std::vector<std::vector<std::string>>& chains,
+                                           bool include_matrix,
+                                           bool print_output,
+                                           const std::string& output_name) {
+    if (atoms.empty()) {
+        throw SASAError("No atoms provided");
+    }
+
+    std::stringstream buffer;
+    auto old_buf = std::cerr.rdbuf(buffer.rdbuf());
+    vdw_radii_.SetRadius(atoms, probe_radius_);
+    std::cerr.rdbuf(old_buf);
+    
+    int Imode = chains.empty() ? 2 : 3;  // 2 for molecular contacts, 3 for chain contacts
+
+    if (!chains.empty()) {
+        ChainSelector(chains, atoms);
+    }
+
+    SolveInteractions(atoms, Imode);
+    DecoupledSolver(atoms, vdw_radii_.Points);
+    CalculateDNA_ProtInteractions(atoms, 1);
+    calculate_contact_areas_from_overlaps(atoms);
+
+    py::dict results = create_analysis_results(atoms, include_matrix);
+
+    if (include_matrix) {
+        results["inter_bsa_matrix"] = generate_inter_bsa_matrices(atoms);
+        results["intra_bsa_matrix"] = generate_intra_bsa_matrices(atoms);
+    }
+
+    if (print_output) {
+        int atmasa_bsa = 1;
+        std::stringstream output;
+        output << output_name;
+        
+        std::string overlap_file = output.str() + ".overlaps";
+        PrintDNA_ProtResults(atoms, overlap_file);
+
+        std::string dsasa_file = output.str() + ".dsasa.pdb";
+        PrintDSASAResults(atoms, dsasa_file);
+        
+        std::string datmasa_file = output.str() + ".datmasa";
+        PrintSplitAsaAtom(atoms, datmasa_file, atmasa_bsa);
+        
+        if(include_matrix) {
+            std::string atom_matrix = output.str() + ".by_atom.tsv";
+            PrintDNA_ProtResultsByAtomMatrix(atoms, atom_matrix, 1);
+            
+            std::string matrix_file = output.str() + ".matrix";
+            Print_MatrixInsideAtom(atoms, matrix_file, 1);
+        }
+        
+        results["printed_output"] = output.str();
+    }
+    
+    return results;
+}#include "common.hpp"
+#include "atom_bindings.hpp"
+#include "exceptions.hpp"
+#include "constants.hpp"
+#include "utils.hpp"
+
+namespace py = pybind11;
+
+// Base class for all SASA calculators
+class SASACalculator {
+protected:
+    VDWcontainer vdw_radii_;
+    float probe_radius_;
+    int compute_mode_;
+
+public:
+    SASACalculator(float probe_radius = DEFAULT_PROBE_RADIUS, int compute_mode = 0)
+        : vdw_radii_(""), probe_radius_(probe_radius), compute_mode_(compute_mode) {
+        vdw_radii_.GenPoints();
+    }
+};
+
+// Simple SASA Calculator
+class SimpleSASA : public SASACalculator {
+public:
+    using SASACalculator::SASACalculator;
+
+    py::dict calculate(const std::string& pdb_file,
+                      bool print_output = false,
+                      const std::string& output_name = "output");
+
+    py::dict calculate_from_atoms(std::vector<atom_struct> atoms,
+                                bool print_output = false,
+                                const std::string& output_name = "output");
+};
+
+// Generic SASA Calculator
+class GenericSASA : public SASACalculator {
+public:
+    using SASACalculator::SASACalculator;
+
+    py::dict calculate(const std::string& pdb_file,
+                      std::vector<std::vector<std::string>>& chains,
+                      bool include_matrix = true,
+                      bool print_output = false,
+                      const std::string& output_name = "output");
+
+    py::dict calculate_from_atoms(std::vector<atom_struct> atoms,
+                                std::vector<std::vector<std::string>>& chains,
+                                bool include_matrix = true,
+                                bool print_output = false,
+                                const std::string& output_name = "output");
+};
+
+// Decoupled SASA Calculator
+class DecoupledSASA : public SASACalculator {
+public:
+    using SASACalculator::SASACalculator;
+
+    py::dict calculate(const std::string& pdb_file,
+                      std::vector<std::vector<std::string>>& chains,
+                      bool include_matrix = true,
+                      bool print_output = false,
+                      const std::string& output_name = "output");
+
+    py::dict calculate_from_atoms(std::vector<atom_struct> atoms,
+                                std::vector<std::vector<std::string>>& chains,
+                                bool include_matrix = true,
+                                bool print_output = false,
+                                const std::string& output_name = "output");
+};
+#include "utils.hpp"
+#include "constants.hpp"
+
+ASAComponents classify_atom_asa(const atom_struct& atom, float base_asa) {
+    ASAComponents components;
+    
+    if (atom.MOL_TYPE == "PROTEIN") {
+        if (is_backbone(atom.NAME)) {
+            components.bb_asa = base_asa;
+            if (is_polar_backbone(atom.NAME)) {
+                components.polar_asa = base_asa;
+                components.polar_bb_asa = base_asa;
+            } else if (is_hyd_backbone(atom.NAME)) {
+                components.hyd_asa = base_asa;
+                components.hyd_bb_asa = base_asa;
+            }
+        } else {
+            components.sc_asa = base_asa;
+            if (is_polar_sidechain(atom.NAME)) {
+                components.polar_asa = base_asa;
+                components.polar_sc_asa = base_asa;
+            } else if (is_hyd_sidechain(atom.NAME)) {
+                components.hyd_asa = base_asa;
+                components.hyd_sc_asa = base_asa;
+            }
+        }
+    } else if (atom.MOL_TYPE == "DNA" || atom.MOL_TYPE == "RNA") {
+        if (is_backbone(atom.NAME)) {
+            components.bb_asa = base_asa;
+            if (is_polar_backbone(atom.NAME)) {
+                components.polar_asa = base_asa;
+                components.polar_bb_asa = base_asa;
+            } else if (is_hyd_backbone(atom.NAME)) {
+                components.hyd_asa = base_asa;
+                components.hyd_bb_asa = base_asa;
+            }
+        } else if (is_in_major_groove(atom.RESN, atom.NAME)) {
+            components.majorgroove_asa = base_asa;
+            if (atom.POLAR) {
+                components.polar_asa = base_asa;
+                components.polar_majorgroove_asa = base_asa;
+            } else {
+                components.hyd_asa = base_asa;
+                components.hyd_majorgroove_asa = base_asa;
+            }
+        } else if (is_in_minor_groove(atom.RESN, atom.NAME)) {
+            components.minorgroove_asa = base_asa;
+            if (atom.POLAR) {
+                components.polar_asa = base_asa;
+                components.polar_minorgroove_asa = base_asa;
+            } else {
+                components.hyd_asa = base_asa;
+                components.hyd_minorgroove_asa = base_asa;
+            }
+        } else {
+            components.nogroove_asa = base_asa;
+            if (atom.POLAR) {
+                components.polar_asa = base_asa;
+                components.polar_nogroove_asa = base_asa;
+            } else {
+                components.hyd_asa = base_asa;
+                components.hyd_nogroove_asa = base_asa;
+            }
+        }
+    } else if (atom.MOL_TYPE == "LIGAND") {
+        components.lig_asa = base_asa;
+        if (atom.POLAR) {
+            components.lig_polar_asa = base_asa;
+        } else {
+            components.lig_hyd_asa = base_asa;
+        }
+    }
+    
+    return components;
+}
+
+
+py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix) {
+    py::dict results;
+    py::dict atoms_dict;
+    py::dict residues_dict;
+    py::dict chains_dict;
+    py::dict lookup;
+
+    // Initialize lookup tables
+    py::dict atom_lookup;
+    py::dict res_lookup;
+    atom_lookup["by_id"] = py::dict();
+    atom_lookup["by_residue"] = py::dict();
+    atom_lookup["by_chain"] = py::dict();
+    res_lookup["by_chain"] = py::dict();
+    
+    // Track unique chains and build lookup tables
+    std::map<std::string, std::vector<std::string>> chain_to_atoms;
+    std::map<std::string, std::vector<std::string>> chain_to_residues;
+    std::map<std::string, std::vector<std::string>> residue_to_atoms;
+    std::set<std::string> mol_types;
+    
+    // First pass: Process atoms and build initial lookup tables
+    for (size_t i = 0; i < atoms.size(); ++i) {
+        const auto& atom = atoms[i];
+        if (!atom.ACTIVE) continue;
+
+        std::string atom_id = std::to_string(atom.ID);
+        std::string residue_id = atom.CHAIN + "_" + atom.RESN + "_" + std::to_string(atom.RESI);
+        
+        // Track molecule types
+        mol_types.insert(atom.MOL_TYPE);
+        
+        // Create organized contact information
+        py::dict nonbonded;
+        for (uint32_t pos : atom.INTERACTION_SASA_P) {
+            const auto& other_atom = atoms[pos];
+            std::string other_id = std::to_string(other_atom.ID);
+            
+            nonbonded[py::str(other_id)] = py::dict(
+                "area"_a=atom.CONTACT_AREA.at(other_atom.ID),
+                "distance"_a=atom.DISTANCES.at(pos)
+            );
+        }
+        
+        // Process overlaps
+        py::list overlap_groups;
+        for (size_t j = 0; j < atom.ov_table.size(); ++j) {
+            const auto& overlap_set = atom.ov_table[j];
+            std::vector<std::string> overlap_atoms;
+            for (uint32_t pos : overlap_set) {
+                overlap_atoms.push_back(std::to_string(atoms[pos].ID));
+            }
+            
+            overlap_groups.append(py::dict(
+                "atoms"_a=overlap_atoms,
+                "area"_a=atom.ov_table_area[j],
+                "normalized_area"_a=atom.ov_norm_area[j],
+                "buried_area"_a=atom.AREA_BURIED_BY_ATOM_area[j]
+            ));
+        }
+
+        // Calculate total areas
+        float total_buried_area = std::accumulate(atom.AREA_BURIED_BY_ATOM_area.begin(), 
+                                                atom.AREA_BURIED_BY_ATOM_area.end(), 0.0f);
+        float total_contact_area = 0.0f;
+        for (const auto& [_, area] : atom.CONTACT_AREA) {
+            total_contact_area += area;
+        }
+        
+        // Create contacts dictionary
+        py::dict contacts = py::dict(
+            "bonded"_a=py::list(),
+            "nonbonded"_a=nonbonded,
+            "overlap_groups"_a=overlap_groups
+        );
+
+        // Create organized atom entry
+        atoms_dict[py::str(atom_id)] = py::dict(
+            // Basic Properties
+            "name"_a=atom.NAME,
+            "resid"_a=atom.RESI,
+            "resname"_a=atom.RESN,
+            "chain"_a=atom.CHAIN,
+            "index"_a=i,
+            "coords"_a=py::make_tuple(atom.COORDS[0], atom.COORDS[1], atom.COORDS[2]),
+            
+            // Surface Analysis
+            "surface"_a=py::dict(
+                "sphere_area"_a=atom.AREA,
+                "sasa"_a=atom.SASA,
+                "buried_area"_a=total_buried_area,
+                "contact_area"_a=total_contact_area,
+                "dsasa"_a=atom.EXT1
+            ),
+            
+            // Physical Properties
+            "properties"_a=py::dict(
+                "vdw"_a=atom.VDW,
+                "polar"_a=atom.POLAR,
+                "charge"_a=atom.CHARGE,
+                "struct_type"_a=atom.MOL_TYPE
+            ),
+            
+            // Contacts
+            "contacts"_a=contacts
+        );
+        
+        // Update lookup tables
+        chain_to_atoms[atom.CHAIN].push_back(atom_id);
+        residue_to_atoms[residue_id].push_back(atom_id);
+    }
+    
+    // Second pass: Build residue information
+    for (const auto& [residue_id, atom_ids] : residue_to_atoms) {
+        float total_sasa = 0.0f;
+        float total_area = 0.0f;
+        std::vector<float> center = {0.0f, 0.0f, 0.0f};
+        
+        // Get first atom to extract residue info
+        const auto& first_atom_id = atom_ids[0];
+        const auto& first_atom = atoms[std::stoi(first_atom_id) - 1];
+        
+        // Calculate standard SASA
+        auto it = STANDARD_SASA_VALUES.find(first_atom.RESN);
+        float standard_sasa = it != STANDARD_SASA_VALUES.end() ? it->second : 0.0f;
+        
+        // Initialize ASA components
+        ASAComponents total_components;
+        
+        // Aggregate atom information
+        for (const auto& atom_id : atom_ids) {
+            const auto& atom = atoms[std::stoi(atom_id) - 1];
+            total_sasa += atom.SASA;
+            total_area += atom.AREA;
+            
+            // Update center
+            center[0] += atom.COORDS[0];
+            center[1] += atom.COORDS[1];
+            center[2] += atom.COORDS[2];
+            
+            // Accumulate ASA components
+            auto components = classify_atom_asa(atom, atom.SASA);
+            total_components.bb_asa += components.bb_asa;
+            total_components.sc_asa += components.sc_asa;
+            total_components.majorgroove_asa += components.majorgroove_asa;
+            total_components.minorgroove_asa += components.minorgroove_asa;
+            total_components.nogroove_asa += components.nogroove_asa;
+            total_components.polar_asa += components.polar_asa;
+            total_components.polar_bb_asa += components.polar_bb_asa;
+            total_components.polar_sc_asa += components.polar_sc_asa;
+            total_components.polar_majorgroove_asa += components.polar_majorgroove_asa;
+            total_components.polar_minorgroove_asa += components.polar_minorgroove_asa;
+            total_components.polar_nogroove_asa += components.polar_nogroove_asa;
+            total_components.hyd_asa += components.hyd_asa;
+            total_components.hyd_bb_asa += components.hyd_bb_asa;
+            total_components.hyd_sc_asa += components.hyd_sc_asa;
+            total_components.hyd_majorgroove_asa += components.hyd_majorgroove_asa;
+            total_components.hyd_minorgroove_asa += components.hyd_minorgroove_asa;
+            total_components.hyd_nogroove_asa += components.hyd_nogroove_asa;
+            total_components.lig_asa += components.lig_asa;
+            total_components.lig_polar_asa += components.lig_polar_asa;
+            total_components.lig_hyd_asa += components.lig_hyd_asa;
+        }
+        
+        // Average the center
+        float n_atoms = static_cast<float>(atom_ids.size());
+        center[0] /= n_atoms;
+        center[1] /= n_atoms;
+        center[2] /= n_atoms;
+        residues_dict[py::str(residue_id)] = py::dict(
+            "identifiers"_a=py::dict(
+                "chain"_a=first_atom.CHAIN,
+                "name"_a=first_atom.RESN,
+                "number"_a=first_atom.RESI,
+                "index"_a=residues_dict.size()
+            ),
+            
+            "structure"_a=py::dict(
+                "atoms"_a=atom_ids,
+                "center"_a=py::make_tuple(center[0], center[1], center[2]),
+                "n_atoms"_a=atom_ids.size()
+            ),
+            
+            "surface"_a=py::dict(
+                "total_sasa"_a=total_sasa,
+                "total_area"_a=total_area,
+                "standard_sasa"_a=standard_sasa,
+                "dsasa"_a=std::max(0.0f, standard_sasa - total_sasa),
+                
+                "backbone"_a=py::dict(
+                    "total"_a=total_components.bb_asa,
+                    "polar"_a=total_components.polar_bb_asa,
+                    "hydrophobic"_a=total_components.hyd_bb_asa
+                ),
+                "sidechain"_a=py::dict(
+                    "total"_a=total_components.sc_asa,
+                    "polar"_a=total_components.polar_sc_asa,
+                    "hydrophobic"_a=total_components.hyd_sc_asa
+                ),
+                
+                "groove"_a=py::dict(
+                    "major"_a=py::dict(
+                        "total"_a=total_components.majorgroove_asa,
+                        "polar"_a=total_components.polar_majorgroove_asa,
+                        "hydrophobic"_a=total_components.hyd_majorgroove_asa
+                    ),
+                    "minor"_a=py::dict(
+                        "total"_a=total_components.minorgroove_asa,
+                        "polar"_a=total_components.polar_minorgroove_asa,
+                        "hydrophobic"_a=total_components.hyd_minorgroove_asa
+                    ),
+                    "none"_a=py::dict(
+                        "total"_a=total_components.nogroove_asa,
+                        "polar"_a=total_components.polar_nogroove_asa,
+                        "hydrophobic"_a=total_components.hyd_nogroove_asa
+                    )
+                )
+            )
+        );
+        
+        // Update chain to residue mapping
+        chain_to_residues[first_atom.CHAIN].push_back(residue_id);
+    }
+    
+    // Build chain information
+    for (const auto& [chain_id, residue_ids] : chain_to_residues) {
+        float total_sasa = 0.0f;
+        float buried_area = 0.0f;
+        
+        // Calculate chain statistics
+        for (const auto& res_id : residue_ids) {
+            auto res = residues_dict[py::str(res_id)];
+            total_sasa += res["surface"]["total_sasa"].cast<float>();
+        }
+        
+        // Get chain type from first atom in chain
+        const auto& first_atom_id = chain_to_atoms[chain_id][0];
+        const auto& first_atom = atoms[std::stoi(first_atom_id) - 1];
+        
+        chains_dict[py::str(chain_id)] = py::dict(
+            "type"_a=first_atom.MOL_TYPE,
+            "residues"_a=residue_ids,
+            "surface"_a=py::dict(
+                "total_sasa"_a=total_sasa,
+                "buried_area"_a=buried_area
+            )
+        );
+    }
+    
+    // Build final lookup tables
+    for (const auto& [chain_id, atom_ids] : chain_to_atoms) {
+        atom_lookup["by_chain"][py::str(chain_id)] = atom_ids;
+    }
+    for (const auto& [residue_id, atom_ids] : residue_to_atoms) {
+        atom_lookup["by_residue"][py::str(residue_id)] = atom_ids;
+    }
+    for (size_t i = 0; i < atoms.size(); ++i) {
+        if (!atoms[i].ACTIVE) continue;
+        atom_lookup["by_id"][py::str(std::to_string(atoms[i].ID))] = i;
+    }
+    for (const auto& [chain_id, residue_ids] : chain_to_residues) {
+        res_lookup["by_chain"][py::str(chain_id)] = residue_ids;
+    }
+
+    // Extract chain IDs for metadata
+    std::vector<std::string> chain_ids;
+    for (const auto& [chain_id, _] : chain_to_residues) {
+        chain_ids.push_back(chain_id);
+    }
+    
+    // Create metadata
+    py::dict metadata = py::dict(
+        "total_atoms"_a=atoms.size(),
+        "total_residues"_a=residues_dict.size(),
+        "chains"_a=chain_ids,
+        "types"_a=std::vector<std::string>(mol_types.begin(), mol_types.end()),
+        "probe_radius"_a=DEFAULT_PROBE_RADIUS
+    );
+    
+    // Assemble final results
+    results["atoms"] = atoms_dict;
+    results["residues"] = residues_dict;
+    results["chains"] = chains_dict;
+    results["lookup"] = py::dict(
+        "atoms"_a=atom_lookup,
+        "residues"_a=res_lookup
+    );
+    results["metadata"] = metadata;
+    
+    return results;
+}
+
+py::dict generate_inter_bsa_matrices(std::vector<atom_struct>& atoms) {
+    map<vector<string>, vector<float>> matrixIJatom;
+    map<vector<string>, vector<float>> matrixIJres;
+    map<vector<string>, vector<string>> COLatom, COLres;
+    map<vector<string>, vector<string>> ROWatom, ROWres;
+    map<vector<string>, vector<uint32_t>> COLatomtype, ROWatomtype;
+
+    GenerateInterBSAMatrix(atoms, matrixIJatom, matrixIJres, 
+                          COLatom, COLres, ROWatom, ROWres,
+                          COLatomtype, ROWatomtype);
+
+    py::dict results;
+    
+    // Add atom-level matrices
+    for (const auto& [key, matrix] : matrixIJatom) {
+        const auto& cols = COLatom[key];
+        const auto& rows = ROWatom[key];
+        
+        results[py::str(key[0] + "_vs_" + key[1])] = py::dict(
+            "matrix"_a = py::array_t<float>({rows.size(), cols.size()}, matrix.data()),
+            "row_labels"_a = rows,
+            "col_labels"_a = cols,
+            "row_types"_a = ROWatomtype[key],
+            "col_types"_a = COLatomtype[key]
+        );
+    }
+    
+    // Add residue-level matrices
+    py::dict res_matrices;
+    for (const auto& [key, matrix] : matrixIJres) {
+        const auto& cols = COLres[key];
+        const auto& rows = ROWres[key];
+        
+        res_matrices[py::str(key[0] + "_vs_" + key[1])] = py::dict(
+            "matrix"_a = py::array_t<float>({rows.size(), cols.size()}, matrix.data()),
+            "row_labels"_a = rows,
+            "col_labels"_a = cols
+        );
+    }
+    results["residue_matrices"] = res_matrices;
+    
+    return results;
+}
+
+py::dict generate_intra_bsa_matrices(std::vector<atom_struct>& atoms) {
+    vector<float> matrixIJatom, matrixIJres;
+    vector<string> COLatom, COLres, ROWatom, ROWres;
+    vector<uint32_t> COLatomtype, ROWatomtype;
+
+    GenerateIntraBSAMatrix(atoms, matrixIJatom, matrixIJres,
+                          COLatom, COLres, ROWatom, ROWres,
+                          COLatomtype, ROWatomtype);
+
+    return py::dict(
+        "atom_matrix"_a = py::array_t<float>(
+            {ROWatom.size(), COLatom.size()}, 
+            matrixIJatom.data()
+        ),
+        "residue_matrix"_a = py::array_t<float>(
+            {ROWres.size(), COLres.size()}, 
+            matrixIJres.data()
+        ),
+        "atom_labels"_a = COLatom,
+        "residue_labels"_a = COLres,
+        "atom_types"_a = COLatomtype
+    );
+}
+
+void calculate_contact_areas_from_overlaps(vector<atom_struct>& pdb) {
+    // Process each atom
+    for (size_t pos = 0; pos < pdb.size(); ++pos) {
+        auto& atom_i = pdb[pos];
+        if (!atom_i.ACTIVE) continue;
+
+        vector<uint32> o_atoms;
+        vector<uint32> interac_pos;
+        vector<char> valid_overlaps(atom_i.AREA_BURIED_BY_ATOM_vector.size(), true);
+
+        // Find interacting atoms with different STRUCT_TYPE
+        for (uint32 i = 0; i < atom_i.INTERACTION_P.size(); ++i) {
+            if (atom_i.STRUCT_TYPE != pdb[atom_i.INTERACTION_P[i]].STRUCT_TYPE) {
+                interac_pos.push_back(atom_i.INTERACTION_P[i]);
+            }
+        }
+
+        // Validate overlaps and collect unique interacting atoms
+        for (uint32 i = 0; i < atom_i.AREA_BURIED_BY_ATOM_vector.size(); ++i) {
+            for (uint32 k = 0; k < atom_i.AREA_BURIED_BY_ATOM_vector[i].size(); ++k) {
+                uint32 other = atom_i.AREA_BURIED_BY_ATOM_vector[i][k];
+                if (interac_pos.end() == find(interac_pos.begin(), interac_pos.end(), other)) {
+                    valid_overlaps[i] = false;
+                }
+            }
+            if (!valid_overlaps[i]) continue;
+
+            atom_i.AREA_BURIED_BY_ATOM_vector_valid.push_back(i);
+            for (uint32 j = 0; j < atom_i.AREA_BURIED_BY_ATOM_vector[i].size(); ++j) {
+                if (o_atoms.end() == find(o_atoms.begin(), o_atoms.end(), atom_i.AREA_BURIED_BY_ATOM_vector[i][j])) {
+                    o_atoms.push_back(atom_i.AREA_BURIED_BY_ATOM_vector[i][j]);
+                }
+            }
+        }
+
+        sort(o_atoms.begin(), o_atoms.end());
+
+        // Calculate EXT0 (total buried area)
+        atom_i.EXT0 = 0.0;
+        for (uint32 i = 0; i < atom_i.AREA_BURIED_BY_ATOM_area.size(); ++i) {
+            if (valid_overlaps[i]) {
+                atom_i.EXT0 += atom_i.AREA_BURIED_BY_ATOM_area[i];
+                atom_i.SASA = atom_i.AREA - atom_i.EXT0;  // Calculate SASA from buried area
+                atom_i.EXT1 = atom_i.EXT0;  // In decoupled mode, dSASA equals buried area
+            }
+        }
+
+        // Store interaction atoms and calculate contact areas
+        atom_i.INTERACTION_SASA_P = o_atoms;
+        
+        // Calculate contact areas
+        for (uint32 other_pos : o_atoms) {
+            float T_area = 0;
+            auto& atom_j = pdb[other_pos];
+            
+            for (uint32 j = 0; j < atom_i.AREA_BURIED_BY_ATOM_vector.size(); ++j) {
+                if (valid_overlaps[j] && 
+                    atom_i.AREA_BURIED_BY_ATOM_vector[j].end() != 
+                    find(atom_i.AREA_BURIED_BY_ATOM_vector[j].begin(), 
+                         atom_i.AREA_BURIED_BY_ATOM_vector[j].end(), 
+                         other_pos)) {
+                    T_area += atom_i.AREA_BURIED_BY_ATOM_area[j];
+                }
+            }
+            
+            atom_i.CONTACT_AREA[atom_j.ID] = T_area;
+        }
+
+        // Populate overlap tables
+        atom_i.ov_table.clear();
+        atom_i.ov_table_area.clear();
+        atom_i.ov_norm_area.clear();
+
+        for (uint32 i = 0; i < atom_i.AREA_BURIED_BY_ATOM_vector.size(); ++i) {
+            if (valid_overlaps[i]) {
+                atom_i.ov_table.push_back(atom_i.AREA_BURIED_BY_ATOM_vector[i]);
+                atom_i.ov_table_area.push_back(atom_i.AREA_BURIED_BY_ATOM_area[i]);
+                atom_i.ov_norm_area.push_back(atom_i.AREA_BURIED_BY_ATOM_area[i] / 
+                                            atom_i.AREA_BURIED_BY_ATOM_vector[i].size());
+            }
+        }
+    }
+}#pragma once
+#include "common.hpp"
+#include "constants.hpp"
+
+namespace py = pybind11;
+
+// ASA component structure to hold all classifications
+struct ASAComponents {
+    float bb_asa = 0.0f;
+    float sc_asa = 0.0f;
+    float majorgroove_asa = 0.0f;
+    float minorgroove_asa = 0.0f;
+    float nogroove_asa = 0.0f;
+    float polar_asa = 0.0f;
+    float polar_bb_asa = 0.0f;
+    float polar_sc_asa = 0.0f;
+    float polar_majorgroove_asa = 0.0f;
+    float polar_minorgroove_asa = 0.0f;
+    float polar_nogroove_asa = 0.0f;
+    float hyd_asa = 0.0f;
+    float hyd_bb_asa = 0.0f;
+    float hyd_sc_asa = 0.0f;
+    float hyd_majorgroove_asa = 0.0f;
+    float hyd_minorgroove_asa = 0.0f;
+    float hyd_nogroove_asa = 0.0f;
+    float lig_asa = 0.0f;
+    float lig_polar_asa = 0.0f;
+    float lig_hyd_asa = 0.0f;
+};
+
+// Other utility functions
+template<typename T>
+inline py::array_t<T> to_numpy(const std::vector<T>& vec) {
+    return py::array_t<T>(vec.size(), vec.data());
+}
+
+template<typename T>
+inline std::vector<T> from_numpy(const py::array_t<T>& arr) {
+    py::buffer_info buf = arr.request();
+    T* ptr = static_cast<T*>(buf.ptr);
+    return std::vector<T>(ptr, ptr + buf.size);
+}
+
+// Classification helper functions
+inline bool is_backbone(const std::string& atom_name) {
+    return std::find(BACKBONE_ATOMS.begin(), BACKBONE_ATOMS.end(), atom_name) != BACKBONE_ATOMS.end();
+}
+
+inline bool is_polar_backbone(const std::string& atom_name) {
+    return std::find(POLAR_BACKBONE.begin(), POLAR_BACKBONE.end(), atom_name) != POLAR_BACKBONE.end();
+}
+
+inline bool is_hyd_backbone(const std::string& atom_name) {
+    return std::find(HYD_BACKBONE.begin(), HYD_BACKBONE.end(), atom_name) != HYD_BACKBONE.end();
+}
+
+inline bool is_polar_sidechain(const std::string& atom_name) {
+    return std::find(POLAR_SIDECHAIN.begin(), POLAR_SIDECHAIN.end(), atom_name) != POLAR_SIDECHAIN.end();
+}
+
+inline bool is_hyd_sidechain(const std::string& atom_name) {
+    return std::find(HYD_SIDECHAIN.begin(), HYD_SIDECHAIN.end(), atom_name) != HYD_SIDECHAIN.end();
+}
+
+inline bool is_in_major_groove(const std::string& resname, const std::string& atom_name) {
+    auto it = MAJOR_GROOVE.find(resname);
+    return it != MAJOR_GROOVE.end() && 
+           std::find(it->second.begin(), it->second.end(), atom_name) != it->second.end();
+}
+
+inline bool is_in_minor_groove(const std::string& resname, const std::string& atom_name) {
+    auto it = MINOR_GROOVE.find(resname);
+    return it != MINOR_GROOVE.end() && 
+           std::find(it->second.begin(), it->second.end(), atom_name) != it->second.end();
+}
+
+// Classification helper function
+ASAComponents classify_atom_asa(const atom_struct& atom, float base_asa);
+// Main analysis functions
+py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix);
+py::dict generate_inter_bsa_matrices(std::vector<atom_struct>& atoms);
+py::dict generate_intra_bsa_matrices(std::vector<atom_struct>& atoms);
+void calculate_contact_areas_from_overlaps(std::vector<atom_struct>& pdb);
