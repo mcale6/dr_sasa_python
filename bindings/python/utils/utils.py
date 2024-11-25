@@ -15,20 +15,26 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
         Dictionary of DataFrames:
             - 'atoms': Atom-level data with surface and contact information
             - 'residues': Residue-level data with detailed surface analysis
-            - 'chains': Chain-level data with aggregate statistics
-            - 'contacts': Contact information (if present)
+            - 'chains': Chain-level data with type and aggregate information
+            - 'contacts': Contact information between atoms
+            - 'overlaps': Overlap groups and their properties
     """
     dfs = {}
     
     # Convert atom data to DataFrame
     atom_records = []
     for atom_id, atom_info in results['atoms'].items():
-        # Prepare contact and overlap data
-        contacts = atom_info['contacts']
-        n_contacts = len(contacts.get('nonbonded', {}))
-        n_overlaps = len(contacts.get('overlap_groups', []))
+        # Get contact and overlap data safely
+        contacts = atom_info.get('contacts', {})
+        nonbonded = contacts.get('nonbonded', {})
+        overlap_groups = contacts.get('overlap_groups', [])
         
-        # Build basic record
+        # Calculate total contact area
+        total_contact_area = sum(contact.get('area', 0.0) for contact in nonbonded.values())
+        
+        # Calculate total overlap area
+        total_overlap_area = sum(overlap.get('area', 0.0) for overlap in overlap_groups)
+        
         record = {
             'id': int(atom_id),
             # Basic Properties
@@ -48,15 +54,17 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
             'contact_area': atom_info['surface']['contact_area'],
             'dsasa': atom_info['surface']['dsasa'],
             
-            # Physical Properties
+            # Properties
             'vdw': atom_info['properties']['vdw'],
             'polar': atom_info['properties']['polar'],
             'charge': atom_info['properties']['charge'],
             'struct_type': atom_info['properties']['struct_type'],
             
-            # Contact counts
-            'n_contacts': n_contacts,
-            'n_overlaps': n_overlaps
+            # Contact metrics
+            'n_contacts': len(nonbonded),
+            'n_overlaps': len(overlap_groups),
+            'total_contact_area': total_contact_area,
+            'total_overlap_area': total_overlap_area
         }
         atom_records.append(record)
     
@@ -65,13 +73,19 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
     # Convert residue data to DataFrame
     residue_records = []
     for residue_id, res in results['residues'].items():
+        contacts = res.get('contacts', {})
+        overlaps = res.get('overlaps', [])
+        
+        # Calculate total contact and overlap areas for residue
+        total_contact_area = sum(contact.get('contact_area', 0.0) for contact in contacts.values())
+        total_overlap_area = sum(overlap.get('overlap_area', 0.0) for overlap in overlaps)
+        
         record = {
             'residue_id': residue_id,
             # Identifiers
             'chain': res['identifiers']['chain'],
             'resname': res['identifiers']['name'],
             'resid': res['identifiers']['number'],
-            'index': res['identifiers']['index'],
             
             # Structure
             'n_atoms': res['structure']['n_atoms'],
@@ -85,61 +99,72 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
             'standard_sasa': res['surface']['standard_sasa'],
             'dsasa': res['surface']['dsasa'],
             
-            # Backbone
-            'bb_total': res['surface']['backbone']['total'],
-            'bb_polar': res['surface']['backbone']['polar'],
-            'bb_hydrophobic': res['surface']['backbone']['hydrophobic'],
-            
-            # Sidechain
-            'sc_total': res['surface']['sidechain']['total'],
-            'sc_polar': res['surface']['sidechain']['polar'],
-            'sc_hydrophobic': res['surface']['sidechain']['hydrophobic'],
-            
-            # Groove Analysis
-            'major_total': res['surface']['groove']['major']['total'],
-            'major_polar': res['surface']['groove']['major']['polar'],
-            'major_hydrophobic': res['surface']['groove']['major']['hydrophobic'],
-            
-            'minor_total': res['surface']['groove']['minor']['total'],
-            'minor_polar': res['surface']['groove']['minor']['polar'],
-            'minor_hydrophobic': res['surface']['groove']['minor']['hydrophobic'],
-            
-            'nogroove_total': res['surface']['groove']['none']['total'],
-            'nogroove_polar': res['surface']['groove']['none']['polar'],
-            'nogroove_hydrophobic': res['surface']['groove']['none']['hydrophobic']
+            # Contact metrics
+            'n_contacts': len(contacts),
+            'n_overlaps': len(overlaps),
+            'total_contact_area': total_contact_area,
+            'total_overlap_area': total_overlap_area
         }
         residue_records.append(record)
     
     dfs['residues'] = pd.DataFrame(residue_records).set_index('residue_id')
 
-    # Convert chain data to DataFrame
+    # Convert chain data to DataFrame with more information
     chain_records = []
     for chain_id, chain in results['chains'].items():
+        # Get all residues for this chain from residues DataFrame
+        chain_residues = [r for r in residue_records if r['chain'] == chain_id]
+        
         record = {
             'chain_id': chain_id,
             'type': chain['type'],
             'n_residues': len(chain['residues']),
-            'total_sasa': chain['surface']['total_sasa'],
-            'buried_area': chain['surface']['buried_area']
+            'n_atoms': sum(r['n_atoms'] for r in chain_residues),
+            'total_sasa': sum(r['total_sasa'] for r in chain_residues),
+            'total_area': sum(r['total_area'] for r in chain_residues),
+            'total_dsasa': sum(r['dsasa'] for r in chain_residues),
+            'total_contacts': sum(r['n_contacts'] for r in chain_residues),
+            'total_overlaps': sum(r['n_overlaps'] for r in chain_residues),
+            'total_contact_area': sum(r['total_contact_area'] for r in chain_residues),
+            'total_overlap_area': sum(r['total_overlap_area'] for r in chain_residues)
         }
         chain_records.append(record)
     
     dfs['chains'] = pd.DataFrame(chain_records).set_index('chain_id')
     
-    # Create contact network DataFrame if needed
+    # Create detailed contact network DataFrame
     contact_records = []
     for atom_id, atom_info in results['atoms'].items():
-        for contact_id, contact_data in atom_info['contacts']['nonbonded'].items():
+        contacts = atom_info.get('contacts', {}).get('nonbonded', {})
+        for contact_id, contact_data in contacts.items():
             record = {
                 'atom_id': int(atom_id),
                 'contact_id': int(contact_id),
                 'area': contact_data['area'],
-                'distance': contact_data['distance']
+                'distance': contact_data.get('distance', float('nan'))
             }
             contact_records.append(record)
     
     if contact_records:
         dfs['contacts'] = pd.DataFrame(contact_records)
+
+    # Create detailed overlap groups DataFrame
+    overlap_records = []
+    for atom_id, atom_info in results['atoms'].items():
+        overlap_groups = atom_info.get('contacts', {}).get('overlap_groups', [])
+        for i, overlap in enumerate(overlap_groups):
+            record = {
+                'atom_id': int(atom_id),
+                'overlap_index': i,
+                'atoms': ','.join(map(str, overlap['atoms'])),
+                'area': overlap['area'],
+                'normalized_area': overlap['normalized_area'],
+                'buried_area': overlap['buried_area']
+            }
+            overlap_records.append(record)
+    
+    if overlap_records:
+        dfs['overlaps'] = pd.DataFrame(overlap_records)
 
     return dfs
 
