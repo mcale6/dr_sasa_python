@@ -445,6 +445,10 @@ print(f"Sidechain total: {atoms['sidechain_total'].sum():.2f}")
 print("\nPolar/Hydrophobic Distribution:")
 print(f"Polar surface: {atoms['polar_asa'].sum():.2f}")
 print(f"Hydrophobic surface: {atoms['hyd_asa'].sum():.2f}")
+
+A <--- B buried surface (A^2):	4787.38
+A ---> B buried surface (A^2):	4910.12
+Interface A/B (A^2):	4848.75
 ```
 
 ## Sphere Point Distribution Comparison
