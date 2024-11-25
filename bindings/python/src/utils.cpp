@@ -164,7 +164,7 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
             "groove"_a=groove_components,
             "ligand"_a=ligand_components
         );
-        
+
         py::dict properties = py::dict(
             "vdw"_a=atom.VDW,
             "polar"_a=atom.POLAR,
@@ -511,6 +511,9 @@ void calculate_contact_areas_from_overlaps(vector<atom_struct>& pdb) {
                 atom_i.EXT0 += atom_i.AREA_BURIED_BY_ATOM_area[i];
             }
         }
+        // because decoupled
+        atom_i.SASA = atom_i.AREA - atom_i.EXT0;  // SASA is what's not buried
+        atom_i.EXT1 = atom_i.EXT0;                // dSASA equals buried area in decoupled
 
         // Store interaction atoms and calculate contact areas
         atom_i.INTERACTION_SASA_P = o_atoms;

@@ -134,7 +134,7 @@ py::dict GenericSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
         PrintSplitAsaAtom(atoms, datmasa_file, atmasa_bsa);
         
         std::string asa_file = base_output.str() + ".asa.pdb";
-        PrintSASAResults(atoms, asa_file);
+        PrintDSASAResults(atoms, asa_file);
         
         std::string atmasa_file = base_output.str() + ".atmasa";
         PrintSplitAsaAtom(atoms, atmasa_file, atmasa_sasa);
@@ -195,7 +195,7 @@ py::dict DecoupledSASA::calculate_from_atoms(std::vector<atom_struct> atoms,
     calculate_contact_areas_from_overlaps(atoms);
 
     py::dict results = create_analysis_results(atoms, include_matrix);
-
+    //py::dict results;
     if (include_matrix) {
         results["inter_bsa_matrix"] = generate_inter_bsa_matrices(atoms);
         results["intra_bsa_matrix"] = generate_intra_bsa_matrices(atoms);

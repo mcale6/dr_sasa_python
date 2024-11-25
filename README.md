@@ -36,7 +36,6 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 The key difference is that GenericSolver computes overlaps by comparing states (original vs. new) while DecoupledSolver directly calculates overlaps within a single state, though both can output similar overlap and contact information in their results. DecoupledSolver doesnt not check wathever or not the atom is solvent exposed. 
 
-
 ## In Development
 - Fixing Result Dict to populate DecoupledSASA.
 - Input validation (e.g empty atoms)
@@ -393,54 +392,66 @@ print(f"Molecule types: {metadata['types']}")
 print(f"Probe radius used: {metadata['probe_radius']}")
 ```
 
+## Quick Start Examples
 
-## 1. SimpleSASA
-Basic SASA calculator for single structures or complexes.
-
+### 1. Simple SASA Calculation
+Basic SASA calculation for a structure:
 ```python
-from dr_sasa_py import SimpleSASA
+from dr_sasa import SimpleSASA
 
 # Initialize calculator
-calculator = SimpleSASA(
-    probe_radius=1.4,  # Water probe radius in Angstroms
-    compute_mode=0     # CPU mode (GPU support with OpenCL)
-)
+calculator = SimpleSASA(probe_radius=1.4)
 
 # Calculate SASA
-results = calculator.calculate(
-    "protein.pdb",
-    print_output=True,      # Generate detailed output files
-    output_name="results"   # Base name for output files
-)
+results = calculator.calculate("3i40.pdb")
+
+# Convert to pandas DataFrames
+dfs = calculator.to_dataframes(results)
 
 # Access results
-for atom_id, atom_data in results.items():
-    print(f"Atom {atom_id}: SASA = {atom_data['sasa']:.2f} Å²")
+print(f"Total atoms analyzed: {results['metadata']['total_atoms']}")
+print(f"Average residue SASA: {dfs['residues']['total_sasa'].mean():.2f}")
 ```
 
-
-## 2. GenericSASA
-Advanced calculator for analyzing interactions between chain groups.
-
+### 2. Generic Analysis (Chain Interactions)
+Analyze interactions between specific chains:
 ```python
-from dr_sasa_py import GenericSASA
+from dr_sasa import GenericSASA
 
 # Initialize calculator
 calculator = GenericSASA(probe_radius=1.4)
 
-# Calculate with chain selection
-results = calculator.calculate(
-    "complex.pdb",
-    chains=[["A"], ["B"]],  # Analyze chains A and B
-    include_matrix=True     # Generate interaction matrices
-)
+# Analyze interaction between chains A and B
+chains = [["A"], ["B"]]
+results = calculator.calculate("3i40.pdb", chains=chains)
 
-# Analyze chain interactions
-for atom_id, atom_data in results.items():
-    if atom_data['contacts']:
-        print(f"\nAtom {atom_id} ({atom_data['chain']}) contacts:")
-        for contact_id, contact_info in atom_data['contacts'].items():
-            print(f"  - Contact with {contact_id}: {contact_info['contact_area']:.2f} Å²")
+# Get surface and interaction data
+dfs = calculator.to_dataframes(results)
+
+# Analyze interface
+contacts = dfs['contacts']
+print(f"Number of atomic contacts: {len(contacts)}")
+print(f"Total buried surface area: {dfs['atoms']['buried_area'].sum():.2f}")
+```
+
+### 3. Decoupled Surface Analysis
+Detailed surface component analysis:
+```python
+from dr_sasa import DecoupledSASA
+# Decoupled does also check non-solvent exposed contacts
+calc = dr_sasa_py.DecoupledSASA(probe_radius=1.4) 
+result = calc.calculate(str("3i40.pdb"), chains=[["A"], ["B"]], # chains need to be defined!
+    include_matrix=True, 
+    print_output=True)
+
+# Access surface components
+atoms = dfs['atoms']
+print("\nSurface Composition:")
+print(f"Backbone total: {atoms['backbone_total'].sum():.2f}")
+print(f"Sidechain total: {atoms['sidechain_total'].sum():.2f}")
+print("\nPolar/Hydrophobic Distribution:")
+print(f"Polar surface: {atoms['polar_asa'].sum():.2f}")
+print(f"Hydrophobic surface: {atoms['hyd_asa'].sum():.2f}")
 ```
 
 ## Sphere Point Distribution Comparison
