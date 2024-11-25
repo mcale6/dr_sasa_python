@@ -36,16 +36,9 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 The key difference is that GenericSolver computes overlaps by comparing states (original vs. new) while DecoupledSolver directly calculates overlaps within a single state, though both can output similar overlap and contact information in their results. DecoupledSolver doesnt not check wathever or not the atom is solvent exposed. 
 
-### Point Transformations
-$$
-\begin{align*}
-\text{Surface Points:}& \quad \vec{p}_k = R_i\vec{s}_k + \vec{c}_i \\
-\text{Contact Check:}& \quad ||\vec{p}_k - \vec{c}_j||^2 \leq R_j^2
-\end{align*}
-$$
 
 ## In Development
-- Fixing Result Dict
+- Fixing Result Dict to populate DecoupledSASA.
 - Input validation (e.g empty atoms)
 - CUDA support
 - Comprehensive contact surface analysis, plots
@@ -139,190 +132,267 @@ The analysis results are returned as a dictionary containing atom-level data, re
 When `include_matrix=True` and `print_output=True`, additional 3 fields are included beside atom_data and residue_data: "residue_matrices", "interaction_matrices", "intra_matrices". 
 
 ## Structure Overview
+
+### `atoms`
+Contains atom-level information with each atom ID as key:
+```python
+{
+    "atom_id": {
+        "name": str,            # Atom name
+        "resname": str,         # Residue name
+        "chain": str,           # Chain identifier
+        "resid": int,          # Residue number
+        "index": int,          # Atom index
+        "coords": tuple,       # (x, y, z) coordinates
+        
+        "surface": {
+            "sphere_area": float,    # Total sphere area
+            "sasa": float,           # Solvent accessible surface area
+            "buried_area": float,    # Buried surface area
+            "contact_area": float,   # Contact surface area
+            "dsasa": float,          # Delta SASA
+            "total_asa": float,      # Total accessible surface area
+            
+            "backbone": {
+                "total": float,      # Total backbone surface
+                "polar": float,      # Polar backbone surface
+                "hydrophobic": float # Hydrophobic backbone surface
+            },
+            "sidechain": {
+                "total": float,      # Total sidechain surface
+                "polar": float,      # Polar sidechain surface
+                "hydrophobic": float # Hydrophobic sidechain surface
+            },
+            "groove": {              # For nucleic acids
+                "major": {
+                    "total": float,
+                    "polar": float,
+                    "hydrophobic": float
+                },
+                "minor": {
+                    "total": float,
+                    "polar": float,
+                    "hydrophobic": float
+                },
+                "none": {
+                    "total": float,
+                    "polar": float,
+                    "hydrophobic": float
+                }
+            },
+            "ligand": {             # For ligands
+                "total": float,
+                "polar": float,
+                "hydrophobic": float
+            }
+        },
+        
+        "properties": {
+            "vdw": float,          # Van der Waals radius
+            "polar": bool,         # Is polar
+            "charge": str,         # Charge
+            "struct_type": str     # Structure type
+        },
+        
+        "contacts": {
+            "nonbonded": {         # Non-bonded contacts
+                "atom_id": {
+                    "area": float,
+                    "distance": float
+                }
+            },
+            "overlap_groups": [     # Overlap information
+                {
+                    "atoms": list[int],
+                    "area": float,
+                    "normalized_area": float,
+                    "buried_area": float
+                }
+            ]
+        }
+    }
+}
+```
+
+### `residues`
+Contains residue-level information with residue ID as key:
+```python
+{
+    "residue_id": {
+        "identifiers": {
+            "chain": str,
+            "name": str,
+            "number": int
+        },
+        "structure": {
+            "center": tuple,     # (x, y, z)
+            "n_atoms": int
+        },
+        "surface": {
+            "total_sasa": float,
+            "total_area": float,
+            "standard_sasa": float,
+            "dsasa": float
+        },
+        "contacts": dict,        # Similar to atom contacts
+        "overlaps": list        # Similar to atom overlaps
+    }
+}
+```
+
+### `chains`
+Contains chain-level information with chain ID as key:
+```python
+{
+    "chain_id": {
+        "type": str,           # Chain type (PROTEIN, DNA, etc.)
+        "residues": list[str]  # List of residue IDs
+    }
+}
+```
+
+### `lookup`
+Contains cross-reference information:
 ```python
 {
     "atoms": {
-        "1": {  # Still ID-keyed for compatibility
-            # Basic Properties
-            "name": "N",
-            "resid": 1,
-            "resname": "MET",
-            "chain": "B",
-            "index": 0,
-            "coords": (13.117, 2.545, -44.880),
-            
-            # Surface Analysis
-            "surface": {
-                "sphere_area": 116.899,
-                "sasa": 50.828,
-                "buried_area": 66.071,
-                "contact_area": 45.2,
-                "dsasa": 0.0,
-            },
-            
-            # Physical Properties
-            "properties": {
-                "vdw": 1.65,
-                "polar": 1,
-                "charge": "",
-                "struct_type": "PROTEIN"
-            },
-
-            # Contacts grouped by type
-            "contacts": {
-                "bonded": ["2", "5"],     # Connected atoms
-                "nonbonded": {            # Non-bonded interactions
-                    "2": {
-                        "area": 15.3,
-                        "distance": 3.8
-                    }
-                },
-                "overlap_groups": [        # Groups of overlapping atoms
-                    {
-                        "atoms": ["2", "3"],
-                        "area": 25.6,
-                        "normalized_area": 0.212,
-                        "buried_area": 94.9
-                    }
-                ]
-            }
-        }
+        "by_residue": dict,    # Residue ID to list of atom IDs
+        "by_chain": dict       # Chain ID to list of atom IDs
     },
-
     "residues": {
-        "B_MET_1": {  # Chain_Resname_Resid as key
-            "identifiers": {
-                "chain": "B",
-                "name": "MET",
-                "number": 1,
-                "index": 0
-            },
-            
-            "structure": {
-                "atoms": ["1", "2", "3"],  # Atom IDs
-                "center": (13.295, 2.654, -43.435),
-                "n_atoms": 3
-            },
-
-            "surface": {
-                "total_sasa": 92.3,
-                "total_area": 185.6,
-                "standard_sasa": 191.547,
-                "dsasa": 99.247,
-                
-                # ASA Components organized by type
-                "backbone": {
-                    "total": 50.828,
-                    "polar": 50.828,
-                    "hydrophobic": 0.0
-                },
-                "sidechain": {
-                    "total": 41.472,
-                    "polar": 0.0,
-                    "hydrophobic": 41.472
-                },
-                "groove": {  # For nucleic acids
-                    "major": {
-                        "total": 0.0,
-                        "polar": 0.0,
-                        "hydrophobic": 0.0
-                    },
-                    "minor": {
-                        "total": 0.0,
-                        "polar": 0.0,
-                        "hydrophobic": 0.0
-                    },
-                    "none": {
-                        "total": 0.0,
-                        "polar": 0.0,
-                        "hydrophobic": 0.0
-                    }
-                }
-            },
-
-            "contacts": {
-                "residues": ["B_ALA_2", "B_VAL_3"],  # Contacting residues
-                "interface_area": 145.6              # Total interface area
-            }
-        }
-    },
-
-    "chains": {
-        "B": {
-            "type": "PROTEIN",
-            "residues": ["B_MET_1", "B_ALA_2"],  # Residue IDs
-            "surface": {
-                "total_sasa": 1234.5,
-                "buried_area": 567.8
-            }
-        }
-    },
-
-    "lookup": {
-        "atoms": {
-            "by_id": {"1": 0},            # ID to index
-            "by_residue": {"B_MET_1": ["1", "2", "3"]},  # Residue to atom IDs
-            "by_chain": {"B": ["1", "2", "3"]}           # Chain to atom IDs
-        },
-        "residues": {
-            "by_chain": {"B": ["B_MET_1", "B_ALA_2"]}   # Chain to residue IDs
-        }
-    },
-
-    "metadata": {
-        "total_atoms": 100,
-        "total_residues": 15,
-        "chains": ["A", "B"],
-        "types": ["PROTEIN", "DNA"],
-        "probe_radius": 1.4
+        "by_chain": dict       # Chain ID to list of residue IDs
     }
+}
+```
+
+### `metadata`
+Contains analysis metadata:
+```python
+{
+    "total_atoms": int,        # Total number of atoms
+    "total_residues": int,     # Total number of residues
+    "chains": list[str],       # List of chain IDs
+    "types": list[str],        # List of molecule types
+    "probe_radius": float      # Probe radius used
 }
 ```
 
 ## Accessing the Data
 
 ### Atom Data
-Access atom information directly by atom ID:
+Access atom information with detailed surface and contact analysis:
 ```python
 # Get data for atom with ID 1
-atom = results["atom_data"]["1"]
-print(f"Atom {atom['name']} has SASA of {atom['sasa']}")
+atom = results["atoms"]["1"]
+
+# Basic properties
+print(f"Atom {atom['name']} in {atom['resname']}{atom['resid']}")
+print(f"Location: x={atom['coords'][0]}, y={atom['coords'][1]}, z={atom['coords'][2]}")
+
+# Surface analysis
+surface = atom["surface"]
+print(f"SASA: {surface['sasa']}")
+print(f"Buried Area: {surface['buried_area']}")
+print(f"Contact Area: {surface['contact_area']}")
+
+# Component analysis
+backbone = surface["backbone"]
+print(f"Backbone surface: total={backbone['total']}, polar={backbone['polar']}")
+
+# For nucleic acids, check groove surfaces
+if atom['properties']['struct_type'] in ['DNA', 'RNA']:
+    groove = surface["groove"]
+    major = groove["major"]
+    minor = groove["minor"]
+    print(f"Major groove: total={major['total']}, polar={major['polar']}")
+    print(f"Minor groove: total={minor['total']}, polar={minor['polar']}")
 ```
 
 ### Residue Data
-Two ways to access residue data:
-
-1. Sequential access (by index):
+Access residue-level information with surface and contact details:
 ```python
-# Get first residue in structure
-first_res = results["residue_data"][0]
-print(f"First residue is {first_res['resname']}{first_res['resid']}")
-
-# Iterate through all residues
-for residue in results["residue_data"]:
-    print(f"Residue {residue['chain']}_{residue['resname']}{residue['resid']} has {residue['n_atoms']} atoms")
-```
-
-2. Lookup by residue identifier:
-```python
-# Get specific residue using residue_index
+# Get residue by ID
 res_id = "A_ALA_1"  # Format: "chain_resname_resid"
-idx = results["residue_index"][res_id]
-residue = results["residue_data"][idx]
-print(f"SASA for {res_id}: {residue['total_sasa']}")
+residue = results["residues"][res_id]
+
+# Basic information
+print(f"Residue: {residue['identifiers']['chain']}_{residue['identifiers']['name']}{residue['identifiers']['number']}")
+print(f"Number of atoms: {residue['structure']['n_atoms']}")
+
+# Surface analysis
+surface = residue["surface"]
+print(f"Total SASA: {surface['total_sasa']}")
+print(f"Standard SASA: {surface['standard_sasa']}")
+print(f"dSASA: {surface['dsasa']}")
+
+# Contact analysis
+contacts = residue["contacts"]
+print(f"Number of contacts: {len(contacts)}")
+for atom_id, contact in contacts.items():
+    print(f"Contact with atom {atom_id}: area={contact['contact_area']}, distance={contact['distance']}")
 ```
 
-### Working with Contacts and Overlaps
+### Chain Data
+Access chain-level information and aggregated statistics:
 ```python
-# Access contacts for a residue
-residue = results["residue_data"][0]
-for atom_id, contact in residue["contacts"].items():
-    print(f"Contact with atom {atom_id}: area = {contact['contact_area']}, distance = {contact['distance']}")
+# Get chain information
+chain = results["chains"]["A"]
+print(f"Chain type: {chain['type']}")
+print(f"Number of residues: {len(chain['residues'])}")
 
-# Access overlaps for a residue
-for overlap in residue["overlaps"]:
-    print(f"Overlap involving atoms {overlap['atoms']}: area = {overlap['overlap_area']}")
+# List all residues in chain
+for res_id in chain["residues"]:
+    print(f"Residue: {res_id}")
 ```
+
+### Using Lookup Tables
+Efficiently navigate between atoms, residues, and chains:
+```python
+# Get all atoms in a residue
+res_id = "A_ALA_1"
+atom_ids = results["lookup"]["atoms"]["by_residue"][res_id]
+for atom_id in atom_ids:
+    atom = results["atoms"][atom_id]
+    print(f"Atom {atom['name']}: SASA={atom['surface']['sasa']}")
+
+# Get all residues in a chain
+chain_id = "A"
+res_ids = results["lookup"]["residues"]["by_chain"][chain_id]
+for res_id in res_ids:
+    residue = results["residues"][res_id]
+    print(f"Residue {res_id}: {residue['surface']['total_sasa']}")
+```
+
+### Analyzing Surface Components
+Access detailed surface component analysis:
+```python
+# Get backbone vs sidechain analysis for a protein atom
+atom = results["atoms"]["1"]
+if atom["properties"]["struct_type"] == "PROTEIN":
+    backbone = atom["surface"]["backbone"]
+    sidechain = atom["surface"]["sidechain"]
+    print(f"Backbone: polar={backbone['polar']}, hydrophobic={backbone['hydrophobic']}")
+    print(f"Sidechain: polar={sidechain['polar']}, hydrophobic={sidechain['hydrophobic']}")
+
+# Get groove analysis for nucleic acid
+if atom["properties"]["struct_type"] in ["DNA", "RNA"]:
+    groove = atom["surface"]["groove"]
+    for location in ["major", "minor", "none"]:
+        g = groove[location]
+        print(f"{location.capitalize()} groove: total={g['total']}, polar={g['polar']}, hydrophobic={g['hydrophobic']}")
+```
+
+### Metadata Access
+Get analysis parameters and summary information:
+```python
+metadata = results["metadata"]
+print(f"Total atoms analyzed: {metadata['total_atoms']}")
+print(f"Total residues: {metadata['total_residues']}")
+print(f"Chains present: {metadata['chains']}")
+print(f"Molecule types: {metadata['types']}")
+print(f"Probe radius used: {metadata['probe_radius']}")
+```
+
 
 ## 1. SimpleSASA
 Basic SASA calculator for single structures or complexes.
@@ -394,24 +464,46 @@ Thomson optimization: $E = \sum_{i}\sum_{j\neq i} \frac{1}{|\vec{r}_i - \vec{r}_
 - *Point density: ≈ constant, error ≈ constant, independent of orientation*
 - Better representation of buried surface patches
 
-### SASA Calculation Process
 
-$$
-\begin{align*}
-\text{1. Point Generation:} \\
-&\bullet \text{ Unit sphere points: } \sqrt{x^2+y^2+z^2}=1 \\
-&\bullet \text{ Scale: } \vec{p} = p \cdot R_I \\
-&\bullet \text{ Translate: } \vec{p} = \vec{p} + \vec{C_I} \\
-&\bullet \text{ For overlap: } \vec{p} = \vec{p} - \vec{C_J} \\
-\\
-\text{2. Burial Check:} \\
-&\text{dist}_j = (x-x_j)^2 + (y-y_j)^2 + (z-z_j)^2 \\
-&\text{buried} = (\text{dist}_j \leq R_J^2) \\
-\\
-\text{3. SASA Calculation:} \\
-&SASA = \frac{N_{\text{unburied}}}{N_{\text{total}}} \cdot 4\pi r^2
-\end{align*}
-$$
+### Surface Point Calculation
+- Points on atom i: p(k) = R(i) * s(k) + c(i)
+  * where:
+    - p(k) is the transformed point k
+    - R(i) is radius of atom i
+    - s(k) is unit sphere point k
+    - c(i) is center of atom i
+
+### Contact Check
+- For each point against atom j: |p(k) - c(j)|² ≤ R(j)²
+  * where:
+    - p(k) is the point to check
+    - c(j) is center of atom j
+    - R(j) is radius of atom j
+
+### 1. Point Generation
+1. Start with unit sphere points
+   - Generate points where sqrt(x² + y² + z²) = 1
+2. Scale points by atom radius
+   - point = point * R(I)
+3. Translate to atom center
+   - point = point + C(I)
+4. For overlap checking, shift relative to other atom
+   - point = point - C(J)
+
+### 2. Burial Check
+1. Calculate distance to other atom
+   - dist(j) = (x - x(j))² + (y - y(j))² + (z - z(j))²
+2. Check if point is buried
+   - buried = true if dist(j) ≤ R(J)²
+
+### 3. SASA Calculation
+- Final SASA = (number of unburied points / total points) * 4πr²
+  * where r is the atom radius plus probe radius
+
+## Notes
+- Points are typically distributed uniformly on a unit sphere
+- The more points used, the more accurate the calculation
+- Probe radius is added to atom radius for solvent accessibility
 
 
 ## Contributing

@@ -327,7 +327,7 @@ class TestDrSasaPy:
     def test_sasa_calculation(self, calc_type):
         """Test SASA calculation with different calculators"""
         calculator = self.calculators[calc_type]
-        pdb_path = get_test_file("basic")
+        pdb_path = get_test_file("complex")
         
         # Basic calculation
         results = calculator.calculate(str(pdb_path))
