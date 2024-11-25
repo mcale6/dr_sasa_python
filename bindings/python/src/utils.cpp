@@ -102,20 +102,69 @@ py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool inc
     std::set<std::string> all_types;
     std::map<std::tuple<std::string, std::string, int>, py::dict> residue_temp_data;
 
-    // Process atoms first
     for (size_t i = 0; i < atoms.size(); ++i) {
         const auto& atom = atoms[i];
         if (!atom.ACTIVE) continue;
+        float base_asa = atom.SASA;
+        auto components = classify_atom_asa(atom, base_asa);
+
+        // Create backbone components
+        py::dict backbone_components = py::dict(
+            "total"_a=components.bb_asa,
+            "polar"_a=components.polar_bb_asa,
+            "hydrophobic"_a=components.hyd_bb_asa
+        );
+
+        // Create sidechain components
+        py::dict sidechain_components = py::dict(
+            "total"_a=components.sc_asa,
+            "polar"_a=components.polar_sc_asa,
+            "hydrophobic"_a=components.hyd_sc_asa
+        );
+
+        // Create groove components
+        py::dict groove_components = py::dict(
+            "major"_a=py::dict(
+                "total"_a=components.majorgroove_asa,
+                "polar"_a=components.polar_majorgroove_asa,
+                "hydrophobic"_a=components.hyd_majorgroove_asa
+            ),
+            "minor"_a=py::dict(
+                "total"_a=components.minorgroove_asa,
+                "polar"_a=components.polar_minorgroove_asa,
+                "hydrophobic"_a=components.hyd_minorgroove_asa
+            ),
+            "none"_a=py::dict(
+                "total"_a=components.nogroove_asa,
+                "polar"_a=components.polar_nogroove_asa,
+                "hydrophobic"_a=components.hyd_nogroove_asa
+            )
+        );
+
+        // Create ligand components
+        py::dict ligand_components = py::dict(
+            "total"_a=components.lig_asa,
+            "polar"_a=components.lig_polar_asa,
+            "hydrophobic"_a=components.lig_hyd_asa
+        );
 
         // Create hierarchical atom data
         py::dict surface_info = py::dict(
+            // Basic metrics
             "sphere_area"_a=atom.AREA,
             "sasa"_a=atom.SASA,
             "buried_area"_a=atom.EXT0,
             "contact_area"_a=atom.EXT1,
-            "dsasa"_a=atom.EXT1
+            "dsasa"_a=atom.EXT1,
+            "total_asa"_a=base_asa,
+            
+            // Organized components
+            "backbone"_a=backbone_components,
+            "sidechain"_a=sidechain_components,
+            "groove"_a=groove_components,
+            "ligand"_a=ligand_components
         );
-
+        
         py::dict properties = py::dict(
             "vdw"_a=atom.VDW,
             "polar"_a=atom.POLAR,

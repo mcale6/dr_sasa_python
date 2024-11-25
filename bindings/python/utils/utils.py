@@ -29,10 +29,15 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
         nonbonded = contacts.get('nonbonded', {})
         overlap_groups = contacts.get('overlap_groups', [])
         
+        # Get surface components safely
+        surface = atom_info.get('surface', {})
+        backbone = surface.get('backbone', {})
+        sidechain = surface.get('sidechain', {})
+        groove = surface.get('groove', {})
+        ligand = surface.get('ligand', {})
+        
         # Calculate total contact area
         total_contact_area = sum(contact.get('area', 0.0) for contact in nonbonded.values())
-        
-        # Calculate total overlap area
         total_overlap_area = sum(overlap.get('area', 0.0) for overlap in overlap_groups)
         
         record = {
@@ -47,12 +52,41 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
             'y': atom_info['coords'][1],
             'z': atom_info['coords'][2],
             
-            # Surface Analysis
-            'sphere_area': atom_info['surface']['sphere_area'],
-            'sasa': atom_info['surface']['sasa'],
-            'buried_area': atom_info['surface']['buried_area'],
-            'contact_area': atom_info['surface']['contact_area'],
-            'dsasa': atom_info['surface']['dsasa'],
+            # Basic Surface Analysis
+            'sphere_area': surface['sphere_area'],
+            'sasa': surface['sasa'],
+            'buried_area': surface['buried_area'],
+            'contact_area': surface['contact_area'],
+            'dsasa': surface['dsasa'],
+            'total_asa': surface['total_asa'],
+            
+            # Backbone Components
+            'backbone_total': backbone.get('total', 0.0),
+            'backbone_polar': backbone.get('polar', 0.0),
+            'backbone_hydrophobic': backbone.get('hydrophobic', 0.0),
+            
+            # Sidechain Components
+            'sidechain_total': sidechain.get('total', 0.0),
+            'sidechain_polar': sidechain.get('polar', 0.0),
+            'sidechain_hydrophobic': sidechain.get('hydrophobic', 0.0),
+            
+            # Groove Components
+            'major_groove_total': groove.get('major', {}).get('total', 0.0),
+            'major_groove_polar': groove.get('major', {}).get('polar', 0.0),
+            'major_groove_hydrophobic': groove.get('major', {}).get('hydrophobic', 0.0),
+            
+            'minor_groove_total': groove.get('minor', {}).get('total', 0.0),
+            'minor_groove_polar': groove.get('minor', {}).get('polar', 0.0),
+            'minor_groove_hydrophobic': groove.get('minor', {}).get('hydrophobic', 0.0),
+            
+            'no_groove_total': groove.get('none', {}).get('total', 0.0),
+            'no_groove_polar': groove.get('none', {}).get('polar', 0.0),
+            'no_groove_hydrophobic': groove.get('none', {}).get('hydrophobic', 0.0),
+            
+            # Ligand Components
+            'ligand_total': ligand.get('total', 0.0),
+            'ligand_polar': ligand.get('polar', 0.0),
+            'ligand_hydrophobic': ligand.get('hydrophobic', 0.0),
             
             # Properties
             'vdw': atom_info['properties']['vdw'],
@@ -70,36 +104,32 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
     
     dfs['atoms'] = pd.DataFrame(atom_records).set_index('id')
 
-    # Convert residue data to DataFrame
+    # Convert residue data to DataFrame with similar component organization
     residue_records = []
     for residue_id, res in results['residues'].items():
         contacts = res.get('contacts', {})
         overlaps = res.get('overlaps', [])
+        surface = res.get('surface', {})
         
-        # Calculate total contact and overlap areas for residue
         total_contact_area = sum(contact.get('contact_area', 0.0) for contact in contacts.values())
         total_overlap_area = sum(overlap.get('overlap_area', 0.0) for overlap in overlaps)
         
         record = {
             'residue_id': residue_id,
-            # Identifiers
             'chain': res['identifiers']['chain'],
             'resname': res['identifiers']['name'],
             'resid': res['identifiers']['number'],
             
-            # Structure
             'n_atoms': res['structure']['n_atoms'],
             'center_x': res['structure']['center'][0],
             'center_y': res['structure']['center'][1],
             'center_z': res['structure']['center'][2],
             
-            # Surface Areas
-            'total_sasa': res['surface']['total_sasa'],
-            'total_area': res['surface']['total_area'],
-            'standard_sasa': res['surface']['standard_sasa'],
-            'dsasa': res['surface']['dsasa'],
+            'total_sasa': surface['total_sasa'],
+            'total_area': surface['total_area'],
+            'standard_sasa': surface['standard_sasa'],
+            'dsasa': surface['dsasa'],
             
-            # Contact metrics
             'n_contacts': len(contacts),
             'n_overlaps': len(overlaps),
             'total_contact_area': total_contact_area,
@@ -168,44 +198,216 @@ def convert_to_dataframes(results: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
 
     return dfs
 
-def plot_results(summary_df: pd.DataFrame, output_dir: Path):
-    """Create visualization plots for benchmark results."""
-    # Set style
+def plot_results(df_dict: Dict[str, pd.DataFrame], output_dir: Path):
+    """Create comprehensive visualization plots for surface analysis results.
+    
+    Args:
+        df_dict: Dictionary of DataFrames containing atoms, residues, chains data
+        output_dir: Directory to save plot files
+    """
     plt.style.use('seaborn')
     
-    # Plot distributions
-    fig, axes = plt.subplots(2, 2, figsize=(15, 15))
+    # 1. Surface Area Distribution Analysis
+    fig, axes = plt.subplots(2, 2, figsize=(16, 16))
     
-    # BSA distribution
-    sns.histplot(data=summary_df, x='chain_A_BSA', ax=axes[0,0])
-    axes[0,0].set_title('Distribution of Chain A BSA')
+    # Surface area distributions by type
+    surface_data = df_dict['atoms'].melt(
+        value_vars=['backbone_total', 'sidechain_total', 
+                   'major_groove_total', 'minor_groove_total'],
+        var_name='component', value_name='area'
+    )
+    sns.boxplot(data=surface_data, x='component', y='area', ax=axes[0,0])
+    axes[0,0].set_title('Distribution of Surface Areas by Component')
+    axes[0,0].set_xticklabels(axes[0,0].get_xticklabels(), rotation=45)
     
-    # Interface area distribution
-    sns.histplot(data=summary_df, x='interface_area', ax=axes[0,1])
-    axes[0,1].set_title('Distribution of Interface Areas')
+    # Polar vs Hydrophobic distribution
+    polar_data = df_dict['atoms'].melt(
+        value_vars=['backbone_polar', 'backbone_hydrophobic',
+                   'sidechain_polar', 'sidechain_hydrophobic'],
+        var_name='component', value_name='area'
+    )
+    sns.boxplot(data=polar_data, x='component', y='area', ax=axes[0,1])
+    axes[0,1].set_title('Polar vs Hydrophobic Surface Distribution')
+    axes[0,1].set_xticklabels(axes[0,1].get_xticklabels(), rotation=45)
     
-    # Calculation time vs structure size
+    # SASA vs Buried Area scatter
     sns.scatterplot(
-        data=summary_df,
-        x='total_complex_surface',
-        y='calculation_time',
+        data=df_dict['atoms'],
+        x='sasa',
+        y='buried_area',
+        hue='struct_type',
+        alpha=0.6,
         ax=axes[1,0]
     )
-    axes[1,0].set_title('Calculation Time vs Structure Size')
+    axes[1,0].set_title('SASA vs Buried Area by Structure Type')
     
-    # If differences present, plot error distribution
-    if 'chain_A_BSA_error_per_atom' in summary_df.columns:
-        sns.boxplot(
-            data=summary_df.melt(
-                value_vars=[col for col in summary_df.columns if col.endswith('_error_per_atom')]
-            ),
-            x='variable',
-            y='value',
-            ax=axes[1,1]
-        )
-        axes[1,1].set_title('Error per Atom Distribution')
-        axes[1,1].set_xticklabels(axes[1,1].get_xticklabels(), rotation=45)
+    # Contact analysis
+    sns.scatterplot(
+        data=df_dict['atoms'],
+        x='n_contacts',
+        y='total_contact_area',
+        hue='struct_type',
+        size='n_overlaps',
+        alpha=0.6,
+        ax=axes[1,1]
+    )
+    axes[1,1].set_title('Contact Analysis')
     
     plt.tight_layout()
-    plt.savefig(output_dir / 'benchmark_summary.png', dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / 'surface_analysis.png', dpi=300, bbox_inches='tight')
     plt.close()
+    
+    # 2. Residue Level Analysis
+    fig, axes = plt.subplots(2, 2, figsize=(16, 16))
+    
+    # Residue SASA distribution by type
+    sns.boxplot(
+        data=df_dict['residues'],
+        x='resname',
+        y='total_sasa',
+        ax=axes[0,0]
+    )
+    axes[0,0].set_title('SASA Distribution by Residue Type')
+    axes[0,0].set_xticklabels(axes[0,0].get_xticklabels(), rotation=45)
+    
+    # Residue Contact Analysis
+    sns.scatterplot(
+        data=df_dict['residues'],
+        x='total_sasa',
+        y='total_contact_area',
+        hue='chain',
+        size='n_contacts',
+        alpha=0.6,
+        ax=axes[0,1]
+    )
+    axes[0,1].set_title('Residue Contact Analysis')
+    
+    # dSASA vs Standard SASA
+    sns.scatterplot(
+        data=df_dict['residues'],
+        x='standard_sasa',
+        y='dsasa',
+        hue='resname',
+        alpha=0.6,
+        ax=axes[1,0]
+    )
+    axes[1,0].set_title('dSASA vs Standard SASA')
+    
+    # Residue burial analysis
+    df_dict['residues']['burial_ratio'] = 1 - (df_dict['residues']['total_sasa'] / 
+                                              df_dict['residues']['total_area'])
+    sns.boxplot(
+        data=df_dict['residues'],
+        x='resname',
+        y='burial_ratio',
+        ax=axes[1,1]
+    )
+    axes[1,1].set_title('Residue Burial Ratio Distribution')
+    axes[1,1].set_xticklabels(axes[1,1].get_xticklabels(), rotation=45)
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / 'residue_analysis.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    # 3. Chain Level Analysis
+    if len(df_dict['chains']) > 1:  # Only if multiple chains
+        fig, axes = plt.subplots(2, 2, figsize=(16, 16))
+        
+        # Chain surface composition
+        chain_surface = df_dict['chains'][['type', 'total_sasa', 'total_area', 'total_dsasa']]
+        chain_surface_melted = chain_surface.melt(
+            id_vars=['type'],
+            var_name='metric',
+            value_name='area'
+        )
+        sns.barplot(
+            data=chain_surface_melted,
+            x='type',
+            y='area',
+            hue='metric',
+            ax=axes[0,0]
+        )
+        axes[0,0].set_title('Chain Surface Composition')
+        
+        # Contact distribution by chain
+        sns.barplot(
+            data=df_dict['chains'],
+            x='type',
+            y='total_contacts',
+            ax=axes[0,1]
+        )
+        axes[0,1].set_title('Contacts by Chain Type')
+        
+        # Chain interaction network
+        if 'contacts' in df_dict:
+            contact_matrix = pd.pivot_table(
+                df_dict['contacts'],
+                values='area',
+                index='atom_id',
+                columns='contact_id',
+                aggfunc='sum'
+            ).fillna(0)
+            sns.heatmap(contact_matrix, ax=axes[1,0], cmap='viridis')
+            axes[1,0].set_title('Chain Contact Matrix')
+        
+        # Chain type distribution
+        sns.countplot(
+            data=df_dict['chains'],
+            x='type',
+            ax=axes[1,1]
+        )
+        axes[1,1].set_title('Distribution of Chain Types')
+        
+        plt.tight_layout()
+        plt.savefig(output_dir / 'chain_analysis.png', dpi=300, bbox_inches='tight')
+        plt.close()
+
+    # 4. Optional: Groove Analysis for Nucleic Acids
+    nucleic_data = df_dict['atoms'][
+        df_dict['atoms']['struct_type'].isin(['DNA', 'RNA'])
+    ]
+    if not nucleic_data.empty:
+        fig, axes = plt.subplots(2, 2, figsize=(16, 16))
+        
+        # Major vs Minor groove distribution
+        groove_data = nucleic_data.melt(
+            value_vars=['major_groove_total', 'minor_groove_total', 'no_groove_total'],
+            var_name='groove',
+            value_name='area'
+        )
+        sns.boxplot(data=groove_data, x='groove', y='area', ax=axes[0,0])
+        axes[0,0].set_title('Major vs Minor Groove Surface Distribution')
+        
+        # Groove polarity analysis
+        groove_polarity = nucleic_data.melt(
+            value_vars=['major_groove_polar', 'major_groove_hydrophobic',
+                       'minor_groove_polar', 'minor_groove_hydrophobic'],
+            var_name='component',
+            value_name='area'
+        )
+        sns.boxplot(data=groove_polarity, x='component', y='area', ax=axes[0,1])
+        axes[0,1].set_title('Groove Polarity Analysis')
+        
+        # Groove contact analysis
+        if 'contacts' in df_dict:
+            groove_contacts = df_dict['contacts'][
+                df_dict['contacts']['atom_id'].isin(nucleic_data.index)
+            ]
+            sns.scatterplot(
+                data=groove_contacts,
+                x='distance',
+                y='area',
+                ax=axes[1,0]
+            )
+            axes[1,0].set_title('Groove Contact Distance vs Area')
+        
+        # Base-specific groove analysis
+        base_groove = nucleic_data.groupby('resname')[
+            ['major_groove_total', 'minor_groove_total']
+        ].mean()
+        base_groove.plot(kind='bar', ax=axes[1,1])
+        axes[1,1].set_title('Average Groove Area by Base')
+        
+        plt.tight_layout()
+        plt.savefig(output_dir / 'groove_analysis.png', dpi=300, bbox_inches='tight')
+        plt.close()
