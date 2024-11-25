@@ -14,7 +14,7 @@ PYBIND11_MODULE(dr_sasa_py, m) {
     
     py::register_exception<SASAError>(m, "SASAError");  // Register custom exceptions
     bind_atom_struct(m); // Bind core data structures
-
+    
     py::class_<SimpleSASA>(m, "SimpleSASA")
         .def(py::init<float, int>(),
              py::arg("probe_radius") = DEFAULT_PROBE_RADIUS,

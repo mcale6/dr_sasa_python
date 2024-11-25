@@ -2,7 +2,6 @@
 #include "sasa_calculators.hpp"
 #include <sstream>
 
-
 // SimpleSASA Implementation
 py::dict SimpleSASA::calculate(const std::string& pdb_file,
                              bool print_output,

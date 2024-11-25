@@ -18,6 +18,7 @@ public:
         : vdw_radii_(""), probe_radius_(probe_radius), compute_mode_(compute_mode) {
         vdw_radii_.GenPoints();
     }
+
 };
 
 // Simple SASA Calculator

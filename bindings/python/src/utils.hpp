@@ -78,7 +78,6 @@ inline bool is_in_minor_groove(const std::string& resname, const std::string& at
 ASAComponents classify_atom_asa(const atom_struct& atom, float base_asa);
 // Main analysis functions
 py::dict create_analysis_results(const std::vector<atom_struct>& atoms, bool include_matrix);
-py::dict create_analysis_results2(const std::vector<atom_struct>& atoms, bool include_matrix);
 py::dict generate_inter_bsa_matrices(std::vector<atom_struct>& atoms);
 py::dict generate_intra_bsa_matrices(std::vector<atom_struct>& atoms);
 void calculate_contact_areas_from_overlaps(std::vector<atom_struct>& pdb);

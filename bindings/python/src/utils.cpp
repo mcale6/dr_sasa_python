@@ -1,20 +1,6 @@
 #include "utils.hpp"
 #include "constants.hpp"
 
-/*
-The map index error usually occurs when we try to access values in maps (like CONTACT_AREA or DISTANCES) without checking if the key exists
-Generic_Solver:
-
-Sets INTERACTION_SASA_P
-Populates CONTACT_AREA for each interaction
-Populates DISTANCES for each interaction
-
-DecoupledSolver:
-
-Sets AREA_BURIED_BY_ATOM_vector/area
-Doesn't automatically populate CONTACT_AREA and DISTANCES
- */
-
 ASAComponents classify_atom_asa(const atom_struct& atom, float base_asa) {
     ASAComponents components;
     

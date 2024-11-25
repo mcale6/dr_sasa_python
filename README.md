@@ -401,16 +401,10 @@ from dr_sasa import SimpleSASA
 
 # Initialize calculator
 calculator = SimpleSASA(probe_radius=1.4)
-
-# Calculate SASA
 results = calculator.calculate("3i40.pdb")
-
-# Convert to pandas DataFrames
-dfs = calculator.to_dataframes(results)
 
 # Access results
 print(f"Total atoms analyzed: {results['metadata']['total_atoms']}")
-print(f"Average residue SASA: {dfs['residues']['total_sasa'].mean():.2f}")
 ```
 
 ### 2. Generic Analysis (Chain Interactions)
@@ -420,29 +414,29 @@ from dr_sasa import GenericSASA
 
 # Initialize calculator
 calculator = GenericSASA(probe_radius=1.4)
+results = calculator.calculate("3i40.pdb", chains=[["A"], ["B"]], print_output=True)
 
-# Analyze interaction between chains A and B
-chains = [["A"], ["B"]]
-results = calculator.calculate("3i40.pdb", chains=chains)
-
-# Get surface and interaction data
-dfs = calculator.to_dataframes(results)
-
-# Analyze interface
-contacts = dfs['contacts']
-print(f"Number of atomic contacts: {len(contacts)}")
-print(f"Total buried surface area: {dfs['atoms']['buried_area'].sum():.2f}")
+Selected complex surface (A^2):	3362.89
+Object A complexed surface (A^2):	1201.52
+Object B complexed surface (A^2):	2161.36
+Object A uncomplexed surface (A^2):	1998.48
+Object B uncomplexed surface (A^2):	2905.35
+A <--- B buried surface (A^2):	796.957
+A ---> B buried surface (A^2):	743.99
+Interface A/B (A^2):	770.474
 ```
 
 ### 3. Decoupled Surface Analysis
 Detailed surface component analysis:
 ```python
 from dr_sasa import DecoupledSASA
+from utils import convert_to_dataframes
 # Decoupled does also check non-solvent exposed contacts
 calc = dr_sasa_py.DecoupledSASA(probe_radius=1.4) 
 result = calc.calculate(str("3i40.pdb"), chains=[["A"], ["B"]], # chains need to be defined!
     include_matrix=True, 
     print_output=True)
+dfs = convert_to_dataframes(convert_to_dataframes)
 
 # Access surface components
 atoms = dfs['atoms']
