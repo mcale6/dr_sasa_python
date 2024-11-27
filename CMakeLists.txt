@@ -1,12 +1,23 @@
 cmake_minimum_required(VERSION 3.10)
 project(dr_sasa_simple)
 
-# OpenMP configuration
+# OpenMP configuration with GPU target offloading
 find_package(OpenMP)
 if(OPENMP_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -g") # for debug
+    # Check if compiler supports GPU offloading
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag("-fopenmp-targets=nvptx64-nvidia-cuda" OPENMP_HAVE_NVPTX_OFFLOAD)
+    
+    if(OPENMP_HAVE_NVPTX_OFFLOAD)
+        message(STATUS "OpenMP GPU offloading supported")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda -g")
+    else()
+        message(STATUS "OpenMP GPU offloading not supported, using CPU only")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -g")
+    endif()
+    
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
@@ -26,7 +37,7 @@ if(OpenCL_FOUND)
     add_definitions(-DCL_TARGET_OPENCL_VERSION=120)
     add_definitions(-DUSE_GPU)
 else()
-    message(WARNING "OpenCL not found, GPU support will be disabled")
+    message(WARNING "OpenCL not found, OpenCL support will be disabled")
 endif()
 
 # Find Python and pybind11
@@ -72,9 +83,6 @@ target_link_libraries(dr_sasa_core
 # Python module
 pybind11_add_module(dr_sasa_py MODULE
     bindings/python/src/atom_bindings.cpp
-    #bindings/python/src/simple_sasa.cpp
-    #bindings/python/src/generic_sasa.cpp
-    #bindings/python/src/decoupled_sasa.cpp
     bindings/python/src/sasa_calculators.cpp
     bindings/python/src/utils.cpp
     bindings/python/bindings.cpp
@@ -101,6 +109,9 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/kernels/
 # Print configuration info
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "OpenMP found: ${OPENMP_FOUND}")
+if(OPENMP_FOUND)
+    message(STATUS "OpenMP GPU offload: ${OPENMP_HAVE_NVPTX_OFFLOAD}")
+endif()
 message(STATUS "OpenCL found: ${OpenCL_FOUND}")
 message(STATUS "CXX Flags: ${CMAKE_CXX_FLAGS}")
 message(STATUS "Python: ${Python_EXECUTABLE}")
