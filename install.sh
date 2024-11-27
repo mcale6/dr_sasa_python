@@ -16,6 +16,12 @@ sudo apt-get install -y \
     python3-venv \
     python3-full \
     ocl-icd-opencl-dev \
+    #nvidia-cuda-toolkit \
+    #gcc-offload-nvptx \
+    #libgomp-plugin-nvptx1 \
+    #nvidia-cuda-dev \
+    #gcc-11-offload-nvptx \
+    #libgomp1
 
 # 2. Create and activate virtual environment
 echo "Setting up virtual environment..."

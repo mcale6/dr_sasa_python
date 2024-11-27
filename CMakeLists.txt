@@ -4,40 +4,23 @@ project(dr_sasa_simple)
 # OpenMP configuration with GPU target offloading
 find_package(OpenMP)
 if(OPENMP_FOUND)
-    # Check for NVPTX offloading support
-    find_program(NVPTX_COMPILER 
-        NAMES 
-            "x86_64-linux-gnu-accel-nvptx-none-gcc"
-        PATHS 
-            "/usr/bin"
-    )
+    # Basic OpenMP flags first
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -g")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+
+    # Check if GPU offloading is available
+    find_library(GOMP_PLUGIN "libgomp-plugin-nvptx.so.1" 
+                 PATHS "/usr/lib/x86_64-linux-gnu")
     
-    find_library(NVPTX_PLUGIN 
-        NAMES 
-            "libgomp-plugin-nvptx.so.1"
-            "libgomp-plugin-nvptx.so"
-        PATHS 
-            "/usr/lib/x86_64-linux-gnu"
-    )
-    
-    if(NVPTX_COMPILER AND NVPTX_PLUGIN)
-        message(STATUS "NVPTX compiler found at: ${NVPTX_COMPILER}")
-        message(STATUS "NVPTX plugin found at: ${NVPTX_PLUGIN}")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda -g")
+    if(GOMP_PLUGIN)
+        message(STATUS "GPU offloading enabled - found plugin: ${GOMP_PLUGIN}")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
         add_definitions(-DUSE_OPENMP_GPU_OFFLOAD)
     else()
-        if(NOT NVPTX_COMPILER)
-            message(WARNING "NVPTX compiler not found at /usr/bin/x86_64-linux-gnu-accel-nvptx-none-gcc")
-        endif()
-        if(NOT NVPTX_PLUGIN)
-            message(WARNING "NVPTX plugin not found at /usr/lib/x86_64-linux-gnu/libgomp-plugin-nvptx.so.1")
-        endif()
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -g")
+        message(STATUS "GPU offloading disabled - using CPU only")
     endif()
-    
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
 # Basic configuration
