@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.10)
 project(dr_sasa_simple)
 
 # OpenMP configuration with GPU target offloading
-# OpenMP configuration
 find_package(OpenMP)
 if(OPENMP_FOUND)
     # Basic OpenMP flags first
@@ -10,76 +9,28 @@ if(OPENMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -g")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 
-    # Check which compilers are available
-    execute_process(
-        COMMAND bash -c "ls -l /usr/bin/g++-* | grep -v [0-9][0-9][0-9]"
-        OUTPUT_VARIABLE AVAILABLE_COMPILERS
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    message(STATUS "Available GCC versions: ${AVAILABLE_COMPILERS}")
-
-    # Check compiler version
-    execute_process(
-        COMMAND ${CMAKE_CXX_COMPILER} -dumpversion
-        OUTPUT_VARIABLE GCC_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    message(STATUS "Current compiler version: ${GCC_VERSION}")
-
-    # Look for GPU offloading support
-    find_program(OFFLOAD_COMPILER
-        NAMES
-            "gcc-offload-nvptx"
-            "x86_64-linux-gnu-accel-nvptx-none-gcc"
-            "gcc-11-offload-nvptx"
-            "gcc-12-offload-nvptx"
-        PATHS
-            "/usr/bin"
-            "/usr/local/bin"
-    )
-    message(STATUS "Offload compiler search result: ${OFFLOAD_COMPILER}")
-
-    # Check for offload plugin
-    find_library(GOMP_PLUGIN
-        NAMES
-            "libgomp-plugin-nvptx.so.1"
-            "libgomp-plugin-nvptx.so"
-        PATHS
-            "/usr/lib/x86_64-linux-gnu"
-            "/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}"
-            "/usr/lib"
-    )
-    message(STATUS "GOMP plugin search result: ${GOMP_PLUGIN}")
-
-    # Create a test program
-    file(WRITE "${CMAKE_BINARY_DIR}/openmp_gpu_test.cpp"
-        "#include <omp.h>\n"
-        "int main() {\n"
-        "    #pragma omp target teams distribute parallel for\n"
-        "    for(int i = 0; i < 10; i++) {}\n"
-        "    return 0;\n"
-        "}\n"
-    )
-
-    # Try to compile the test program with GPU offloading
-    execute_process(
-        COMMAND ${CMAKE_CXX_COMPILER} -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda -o openmp_gpu_test openmp_gpu_test.cpp
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        RESULT_VARIABLE COMPILE_RESULT
-        ERROR_VARIABLE COMPILE_ERROR
-        OUTPUT_VARIABLE COMPILE_OUTPUT
-    )
+    # Check if GPU offloading is available
+    find_library(GOMP_PLUGIN "libgomp-plugin-nvptx.so.1" 
+                 PATHS "/usr/lib/x86_64-linux-gnu")
     
-    if(COMPILE_RESULT EQUAL 0)
-        message(STATUS "GPU offloading supported by compiler")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
-        add_definitions(-DUSE_OPENMP_GPU_OFFLOAD)
+    if(GOMP_PLUGIN)
+        # Test if compiler supports the flag
+        include(CheckCXXCompilerFlag)
+        check_cxx_compiler_flag("-fopenmp-targets=nvptx64-nvidia-cuda" COMPILER_SUPPORTS_GPU_OFFLOAD)
+        
+        if(COMPILER_SUPPORTS_GPU_OFFLOAD)
+            message(STATUS "GPU offloading enabled - found plugin: ${GOMP_PLUGIN}")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
+            add_definitions(-DUSE_OPENMP_GPU_OFFLOAD)
+        else()
+            message(STATUS "GPU offloading disabled - compiler does not support offloading flags")
+        endif()
     else()
-        message(STATUS "GPU offloading not supported by compiler")
-        message(STATUS "Compile error: ${COMPILE_ERROR}")
+        message(STATUS "GPU offloading disabled - plugin not found")
     endif()
 endif()
+
 # Basic configuration
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
