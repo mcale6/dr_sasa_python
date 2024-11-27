@@ -5,22 +5,38 @@ project(dr_sasa_simple)
 find_package(OpenMP)
 if(OPENMP_FOUND)
     # Check for NVPTX offloading support
-    find_program(NVPTX_PLUGIN "libgomp-plugin-nvptx.so" 
-                 PATHS "/usr/lib/gcc/x86_64-linux-gnu/11/")
+    find_program(NVPTX_COMPILER 
+        NAMES 
+            "x86_64-linux-gnu-accel-nvptx-none-gcc"
+        PATHS 
+            "/usr/bin"
+    )
     
-    if(NVPTX_PLUGIN)
+    find_library(NVPTX_PLUGIN 
+        NAMES 
+            "libgomp-plugin-nvptx.so.1"
+            "libgomp-plugin-nvptx.so"
+        PATHS 
+            "/usr/lib/x86_64-linux-gnu"
+    )
+    
+    if(NVPTX_COMPILER AND NVPTX_PLUGIN)
+        message(STATUS "NVPTX compiler found at: ${NVPTX_COMPILER}")
         message(STATUS "NVPTX plugin found at: ${NVPTX_PLUGIN}")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda -g")
         add_definitions(-DUSE_OPENMP_GPU_OFFLOAD)
     else()
-        message(WARNING "NVPTX plugin not found. Install with:\n"
-                      "  sudo apt install nvidia-cuda-toolkit\n"
-                      "  sudo apt install gcc-offload-nvptx\n"
-                      "  sudo apt install libgomp-plugin-nvptx1")
+        if(NOT NVPTX_COMPILER)
+            message(WARNING "NVPTX compiler not found at /usr/bin/x86_64-linux-gnu-accel-nvptx-none-gcc")
+        endif()
+        if(NOT NVPTX_PLUGIN)
+            message(WARNING "NVPTX plugin not found at /usr/lib/x86_64-linux-gnu/libgomp-plugin-nvptx.so.1")
+        endif()
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -g")
     endif()
+    
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
