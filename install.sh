@@ -15,7 +15,8 @@ sudo apt-get install -y \
     python3-dev \
     python3-venv \
     python3-full \
-    ocl-icd-opencl-dev
+    ocl-icd-opencl-dev \
+    gcc-offload-nvptx
 
 # 2. Create and activate virtual environment
 echo "Setting up virtual environment..."
@@ -47,10 +48,10 @@ echo "Setting up environment..."
 INSTALL_PATH=$(pwd)/build/lib
 echo "export PYTHONPATH=\$PYTHONPATH:$INSTALL_PATH" >> ~/.bashrc
 
-# 8 Test import
-python tests/test_import.py
-
 # Add virtual environment activation to bashrc 
 echo "# DR-SASA Python Virtual Environment" >> ~/.bashrc
 echo "source ~/dr_sasa_venv/bin/activate" >> ~/.bashrc
+
+# 8 Test 
+pytest -v
 
