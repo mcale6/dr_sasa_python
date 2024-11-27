@@ -16,7 +16,6 @@ sudo apt-get install -y \
     python3-venv \
     python3-full \
     ocl-icd-opencl-dev \
-    gcc-offload-nvptx
 
 # 2. Create and activate virtual environment
 echo "Setting up virtual environment..."
