@@ -26,11 +26,11 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 
 ### GenericSolver (modes 1-3)
 - $dSASA = SASA_{chainAB} - SASA_{chainA}$
-- Pattern matching: $P(G) = \prod_{i \in G} p_i$ (primes)
-- Buried area: $A_{buried} = A_{total} * (N_{pattern}/N_{total})$
 
 ### DecoupledSolver (mode 4)
 - Contact points: $P_k = R_i * S_k + C_i - C_j$
+- Pattern matching: $P(G) = \prod_{i \in G} p_i$ (primes)
+- Buried area: $A_{buried} = A_{total} * (N_{pattern}/N_{total})$
 - Contact area: $A_{contact} = A_{total} * (N_{contact}/N_{total})$
 - Overlap area: $A_{overlap}(G) = A_{total} * (N_{overlap}/N_{total})$
 
@@ -471,7 +471,6 @@ Thomson optimization: $E = \sum_{i}\sum_{j\neq i} \frac{1}{|\vec{r}_i - \vec{r}_
 - More accurate overall surface area calculation
 - *Point density: ≈ constant, error ≈ constant, independent of orientation*
 - Better representation of buried surface patches
-
 
 ### Surface Point Calculation
 - Points on atom i: p(k) = R(i) * s(k) + c(i)
