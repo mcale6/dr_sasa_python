@@ -37,8 +37,8 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 The key difference is that GenericSolver computes overlaps by comparing states (original vs. new) while DecoupledSolver directly calculates overlaps within a single state, though both can output similar overlap and contact information in their results. DecoupledSolver doesnt not check wathever or not the atom is solvent exposed. 
 
 ## In Development
+- Benchmark in pytest
 - Input validation (e.g empty atoms)
-- CUDA support
 - Comprehensive contact surface analysis, plots
 
 ## Benchmark Dataset References
@@ -65,47 +65,7 @@ Download and run the installation script:
 ```bash
 curl -s https://raw.githubusercontent.com/mcale6/dr_sasa_python/main/install.sh | bash
 ```
-
-### Manual Installation Steps
-
-1. Install system dependencies:
-```bash
-sudo apt-get update
-sudo apt-get install -y build-essential cmake git python3 python3-dev python3-venv python3-full ocl-icd-opencl-dev
-```
-
-2. Create and activate a virtual environment:
-```bash
-python3 -m venv ~/dr_sasa_venv
-source ~/dr_sasa_venv/bin/activate
-```
-
-3. Install Python dependencies:
-```bash
-pip install --upgrade pip setuptools wheel
-pip install "pybind11[global]" numpy pandas pytest
-```
-
-4. Clone and build the repository:
-```bash
-git clone --recursive https://github.com/mcale6/dr_sasa_python.git
-cd dr_sasa_python
-mkdir -p build && cd build
-cmake ..
-make -j4
-```
-
-5. Set up Python path:
-```bash
-echo "export PYTHONPATH=$(pwd)/build/lib:$(pwd)/build:$(pwd)" >> ~/.bashrc
-source ~/.bashrc
-```
-
-### Verifying Installation
-Test the installation by importing the package:
-```bash
-python -c "import dr_sasa_py; print('DR-SASA Python installed successfully!')"
-```
+Check install.sh for **Manual Installation Steps**
 
 ### Important Notes
 
@@ -396,10 +356,10 @@ print(f"Probe radius used: {metadata['probe_radius']}")
 ### 1. Simple SASA Calculation
 Basic SASA calculation for a structure:
 ```python
-from dr_sasa import SimpleSASA
+import dr_sasa_python as sasa
 
 # Initialize calculator
-calculator = SimpleSASA(probe_radius=1.4)
+calculator = sasa.SimpleSASA(probe_radius=1.4)
 results = calculator.calculate("3i40.pdb")
 
 # Access results
@@ -409,10 +369,10 @@ print(f"Total atoms analyzed: {results['metadata']['total_atoms']}")
 ### 2. Generic Analysis (Chain Interactions)
 Analyze interactions between specific chains:
 ```python
-from dr_sasa import GenericSASA
+import dr_sasa_python as sasa
 
 # Initialize calculator
-calculator = GenericSASA(probe_radius=1.4)
+calculator = sasa.GenericSASA(probe_radius=1.4)
 results = calculator.calculate("3i40.pdb", chains=[["A"], ["B"]], print_output=True)
 
 Selected complex surface (A^2):	3362.89
@@ -428,10 +388,10 @@ Interface A/B (A^2):	770.474
 ### 3. Decoupled Surface Analysis
 Detailed surface component analysis:
 ```python
-from dr_sasa import DecoupledSASA
-from utils import convert_to_dataframes
+import dr_sasa_python as sasa
+from dr_sasa_python.utils.structure_parser import StructureData, parse_pdb_file, superimpose_structures
 # Decoupled does also check non-solvent exposed contacts
-calc = dr_sasa_py.DecoupledSASA(probe_radius=1.4) 
+calc = sasa.DecoupledSASA(probe_radius=1.4) 
 result = calc.calculate(str("3i40.pdb"), chains=[["A"], ["B"]], # chains need to be defined!
     include_matrix=True, 
     print_output=True)

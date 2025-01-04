@@ -2,126 +2,46 @@
 requires = [
     "setuptools>=42",
     "wheel",
+    "cmake>=3.16",
+    "scikit-build>=0.13",
     "pybind11>=2.6.0",
-    "cmake>=3.18"
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dr_sasa_py"
+name = "dr_sasa_python"
 version = "0.1.0"
-description = "Python bindings for SASA calculations"
-authors = [
-    {name = "xxx", email = "xx"}
-]
-requires-python = ">=3.7,<3.13" 
+description = "Python bindings for DR-SASA molecular surface area calculations"
 readme = "README.md"
-license = {text = "MIT"}
-
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Alessio"}
+]
 dependencies = [
-    "numpy>=1.26.0",
-    "pandas>=2.1.0",
-    "pybind11>=2.6.0",
-    "pytest>=7.0.0",
-    "pytest-cov>=4.1.0",
-    "ipykernel",
-    "notebook"
+    "numpy>=1.19.0",
+    "pandas>=1.0.0",
+    "biopython",  # Added for PDB parsing in tests
 ]
-
-[tool.pytest.ini_options]
-# Test discovery and execution
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-
-# Markers
-markers = [
-    "basic: Basic functionality tests",
-    "calculation: SASA calculation tests",
-    "advanced: Advanced feature tests",
-    "output: Output generation tests"
-]
-
-# Test running options
-addopts = [
-    "--verbose",
-    "-ra",
-    "--strict-markers",
-    "--import-mode=importlib"
-]
-
-# Environment variables for testing
-env = [
-    "PYTHONPATH=${PYTHONPATH}:build/lib",
-    "DEBUG=0"  # Set to 1 to enable debug output
-]
-
-# Custom test settings
-test_paths = [
-    "build/lib",
-    "build",
-    "build/lib.*"
-]
-
-# Configure where to find the conftest.py
-confcutdir = "tests"
-
-[tool.pytest.env]
-# Environment-specific library paths
-linux = [
-    "build/lib.linux-x86_64-*",
-    "build/lib.linux-*"
-]
-darwin = [
-    "build/lib.macosx-*",
-    "build/lib.darwin-*"
-]
-windows = [
-    "build/lib.win-*",
-    "build/lib.windows-*"
-]
-
-[tool.coverage.run]
-source = ["dr_sasa_py"]
-branch = true
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "pass",
-    "raise ImportError"
-]
-show_missing = true
-fail_under = 70
-
-[tool.coverage.html]
-directory = "coverage_html"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.1.0",
-    "black>=22.0.0",
-    "isort>=5.0.0",
-    "mypy>=1.0.0",
-    "flake8>=4.0.0"
+test = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
 ]
 
-[tool.poetry.scripts]
-test = "pytest"
-test-basic = "pytest -v -m basic"
-test-calc = "pytest -v -m calculation"
-test-advanced = "pytest -v -m advanced"
-test-output = "pytest -v -m output"
-test-cov = "pytest --cov=dr_sasa_py --cov-report=html"
+[tool.pytest]
+testpaths = ["tests"]
+python_files = ["test_dr_sasa.py"]
 
-# Custom configuration for library path handling
-[tool.dr_sasa.build]
-debug_output = false  # Set to true to enable path debugging
-library_name = "dr_sasa_py"
-build_dir = "build"
+[tool.setuptools]
+package-dir = {"dr_sasa_python" = "dr_sasa_python"}
+packages = [
+    "dr_sasa_python",
+    "dr_sasa_python.utils",
+    "dr_sasa_python.bindings",
+    "dr_sasa_python.bindings.python"
+]
+
+[tool.setuptools.package-data]
+dr_sasa_python = ["*.so", "*.pyd"]

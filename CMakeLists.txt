@@ -1,41 +1,28 @@
 cmake_minimum_required(VERSION 3.10)
-project(dr_sasa_simple)
+project(dr_sasa_python VERSION 0.1.0)
 
-# OpenMP configuration with GPU target offloading
+# Set installation prefix and paths
+if(SKBUILD)
+    set(CMAKE_INSTALL_PREFIX ${SKBUILD_PLATLIB}/dr_sasa_python)
+    set(INSTALL_DIR "bindings/python")  # Relative to dr_sasa_python package
+else()
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages/dr_sasa_python)
+    set(INSTALL_DIR "bindings/python")  # Keep same structure
+endif()
+
+# OpenMP configuration
 find_package(OpenMP)
 if(OPENMP_FOUND)
-    # Basic OpenMP flags first
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -g")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-
-    # Check if GPU offloading is available
-    find_library(GOMP_PLUGIN "libgomp-plugin-nvptx.so.1" 
-                 PATHS "/usr/lib/x86_64-linux-gnu")
-    
-    if(GOMP_PLUGIN)
-        # Test if compiler supports the flag
-        include(CheckCXXCompilerFlag)
-        check_cxx_compiler_flag("-fopenmp-targets=nvptx64-nvidia-cuda" COMPILER_SUPPORTS_GPU_OFFLOAD)
-        
-        if(COMPILER_SUPPORTS_GPU_OFFLOAD)
-            message(STATUS "GPU offloading enabled - found plugin: ${GOMP_PLUGIN}")
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp-targets=nvptx64-nvidia-cuda")
-            add_definitions(-DUSE_OPENMP_GPU_OFFLOAD)
-        else()
-            message(STATUS "GPU offloading disabled - compiler does not support offloading flags")
-        endif()
-    else()
-        message(STATUS "GPU offloading disabled - plugin not found")
-    endif()
 endif()
 
 # Basic configuration
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Optimization flags from original
+# Optimization flags
 if(NOT APPLE)
     add_definitions(-Wall -O3 -march=native -mtune=native)
 endif()
@@ -46,8 +33,6 @@ if(OpenCL_FOUND)
     message(STATUS "OpenCL found: ${OpenCL_LIBRARIES}")
     add_definitions(-DCL_TARGET_OPENCL_VERSION=120)
     add_definitions(-DUSE_GPU)
-else()
-    message(WARNING "OpenCL not found, OpenCL support will be disabled")
 endif()
 
 # Find Python and pybind11
@@ -71,10 +56,6 @@ set(CORE_SOURCES
     dr_sasa_n/src/stdafx.cpp
 )
 
-# Copy OpenCL kernel files to build directory
-file(GLOB CL_KERNELS "dr_sasa_n/src/*.cl")
-file(COPY ${CL_KERNELS} DESTINATION ${CMAKE_BINARY_DIR}/kernels)
-
 # Core library
 add_library(dr_sasa_core STATIC ${CORE_SOURCES})
 target_include_directories(dr_sasa_core
@@ -83,19 +64,18 @@ target_include_directories(dr_sasa_core
         ${OpenCL_INCLUDE_DIRS}
 )
 
-# Link OpenCL and OpenMP
 target_link_libraries(dr_sasa_core
     PUBLIC 
         $<$<BOOL:${OPENMP_FOUND}>:OpenMP::OpenMP_CXX>
         $<$<BOOL:${OpenCL_FOUND}>:OpenCL::OpenCL>
 )
 
-# Python module
+# Python module (creates dr_sasa_py.so)
 pybind11_add_module(dr_sasa_py MODULE
-    bindings/python/src/atom_bindings.cpp
-    bindings/python/src/sasa_calculators.cpp
-    bindings/python/src/utils.cpp
-    bindings/python/bindings.cpp
+    dr_sasa_python/bindings/python/src/atom_bindings.cpp
+    dr_sasa_python/bindings/python/src/sasa_calculators.cpp
+    dr_sasa_python/bindings/python/src/utils.cpp
+    dr_sasa_python/bindings/python/bindings.cpp
 )
 
 target_include_directories(dr_sasa_py PRIVATE 
@@ -107,21 +87,24 @@ target_link_libraries(dr_sasa_py PRIVATE
     dr_sasa_core
 )
 
-# Set output directory
-set_target_properties(dr_sasa_py PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
-)
+# Installation - puts dr_sasa_py.so in the right place
+install(TARGETS dr_sasa_py 
+        LIBRARY DESTINATION ${INSTALL_DIR}
+        RUNTIME DESTINATION ${INSTALL_DIR})
 
-# Copy OpenCL kernels to installation directory
-install(DIRECTORY ${CMAKE_BINARY_DIR}/kernels/
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/kernels)
+# Package version file
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${CMAKE_BINARY_DIR}/dr_sasa_pythonConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
 
 # Print configuration info
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Installation prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "Install directory: ${INSTALL_DIR}")
 message(STATUS "OpenMP found: ${OPENMP_FOUND}")
-if(OPENMP_FOUND)
-    message(STATUS "OpenMP GPU offload: ${OPENMP_HAVE_NVPTX_OFFLOAD}")
-endif()
 message(STATUS "OpenCL found: ${OpenCL_FOUND}")
 message(STATUS "CXX Flags: ${CMAKE_CXX_FLAGS}")
 message(STATUS "Python: ${Python_EXECUTABLE}")

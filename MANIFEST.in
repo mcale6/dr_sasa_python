@@ -1,0 +1,22 @@
+include LICENSE
+include README.md
+include CMakeLists.txt
+include pyproject.toml
+
+# Include all C++ source files
+recursive-include dr_sasa_n/src *
+recursive-include bindings/python *
+
+# Include test data but exclude cache
+recursive-include tests *.py
+recursive-include tests/data *
+prune tests/__pycache__
+
+# Documentation
+recursive-include doc *
+
+# Exclude build directories
+global-exclude *.py[cod]
+prune build
+prune */__pycache__
+prune */*/__pycache__
