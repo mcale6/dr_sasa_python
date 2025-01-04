@@ -1,3 +1,7 @@
+import dr_sasa_python as sasa
+from dr_sasa_python.utils.structure_parser import StructureData, parse_pdb_file, superimpose_structures
+import numpy as np
+from typing import List, Optional, Dict, Any
 
 def af_structure_to_atom_structs(
     atom_positions: np.ndarray,  # [num_res, num_atom_type, 3]

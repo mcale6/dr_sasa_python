@@ -37,9 +37,9 @@ Parameters for dSASA calculations are based on NACCESS (Chothia, 1976).
 The key difference is that GenericSolver computes overlaps by comparing states (original vs. new) while DecoupledSolver directly calculates overlaps within a single state, though both can output similar overlap and contact information in their results. DecoupledSolver doesnt not check wathever or not the atom is solvent exposed. 
 
 ## In Development
-- Benchmark in pytest
-- Input validation (e.g empty atoms)
-- Comprehensive contact surface analysis, plots
+- Input/PDB validation (e.g empty atoms)
+    - Benchmark in pytest
+- Comprehensive contact surface analysis, plots (refactored)
 
 ## Benchmark Dataset References
 

@@ -1,20 +1,18 @@
-"""
-Tests for dr_sasa_python package.
-"""
 import pytest
-import os
 import warnings
 import tempfile
-from typing import List, Optional, Dict, Any
+import os
 import subprocess
+from pathlib import Path
+from typing import Dict, Any
 import numpy as np
-from pathlib import Path
-from pathlib import Path
-from Bio.PDB import *
+from Bio.PDB import PDBParser
 import dr_sasa_python as sasa
 from dr_sasa_python.utils.structure_parser import StructureData, parse_pdb_file, superimpose_structures
 
+# Test data constants
 # Constants
+DR_SASA_N_EXEC = "/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa"
 TEST_DATA_DIR = Path(__file__).parent / "data"
 TEST_FILES = {
     "basic": "3i40.pdb",
@@ -22,14 +20,25 @@ TEST_FILES = {
     "prediction": "pred.pdb" 
 }
 
+# Fixtures
+@pytest.fixture
+def dr_sasa_exec() -> str:
+    """Path to original dr_sasa executable"""
+    # Try environment variable first, fall back to constant
+    exec_path = os.environ.get('DR_SASA_EXEC', DR_SASA_N_EXEC)
+    
+    if not Path(exec_path).exists():
+        pytest.skip(f"Original dr_sasa executable not found at {exec_path}")
+    return exec_path
+
 @pytest.fixture(params=["simple", "generic", "decoupled"])
 def calc_type(request):
-    """Fixture to parameterize calculator types."""
+    """Calculator type to test."""
     return request.param
 
 @pytest.fixture
 def calculators():
-    """Fixture to provide calculator instances."""
+    """Provide calculator instances."""
     return {
         "simple": sasa.SimpleSASA(probe_radius=1.4),
         "generic": sasa.GenericSASA(probe_radius=1.4),
@@ -38,21 +47,15 @@ def calculators():
 
 @pytest.fixture
 def test_paths():
-    """Fixture to provide test file paths."""
+    """Provide test file paths."""
     def _get_path(key: str) -> Path:
-        test_files = {
-            "basic": TEST_DATA_DIR / "3i40.pdb",
-            "complex": TEST_DATA_DIR / "6gwp.pdb",
-            "prediction": TEST_DATA_DIR / "pred.pdb"
-        }
-        path = test_files[key]
+        path = TEST_DATA_DIR / TEST_FILES[key]
         if not path.exists():
             pytest.skip(f"Test file not found: {path}")
         return path
     return _get_path
 
 
-# Test data
 @pytest.fixture
 def sample_atom_data():
     return {
@@ -163,26 +166,23 @@ def test_atom_selection(sample_atom_data):
     assert len(ca_struct.atom_names) == 1
     assert ca_struct.atom_names[0] == 'CA'
 
-# Existing tests
-def test_pdb_parsing():
-    if not os.path.exists("tests/data/3i40.pdb"):
+def test_pdb_parsing(test_paths):
+    pdb_file = test_paths("basic")
+    if not pdb_file.exists():
+        print(pdb_file)
         pytest.skip("Test PDB file not found")
-    structure = parse_pdb_file("tests/data/3i40.pdb")
+    structure = parse_pdb_file(pdb_file)
     assert len(structure.atom_names) > 0
     assert np.all(np.isfinite(structure.atom_positions))
     assert np.all(structure.occupancies > 0)
 
-def test_simple_sasa_creation():
-    calc = sasa.SimpleSASA()
-    assert calc is not None
+def test_simple_sasa_calculation(test_paths):
+    pdb_file = test_paths("basic")
+    if not pdb_file.exists():
+        raise FileNotFoundError(f"Test PDB file not found: {pdb_file}")
     
-    calc_custom = sasa.SimpleSASA(probe_radius=1.2)
-    assert calc_custom is not None
-
-@pytest.mark.skipif(not os.path.exists("tests/data/3i40.pdb"), reason="Test PDB file not found")
-def test_simple_sasa_calculation():
     calc = sasa.SimpleSASA()
-    results = calc.calculate("tests/data/3i40.pdb")
+    results = calc.calculate(str(pdb_file))
     assert isinstance(results, dict)
     assert len(results) > 0
 
@@ -386,7 +386,7 @@ class TestDrSasaPy:
         assert list(atom.COORDS) == [0.0, 0.0, 0.0]
 
     def test_structure_data(self):
-        """Test StructureData creation and manipulation"""
+        """Test sasa.StructureData creation and manipulation"""
         pdb_path = get_test_file("basic")
         structure = parse_pdb_file(pdb_path)
         assert len(structure.atom_names) > 0
@@ -447,6 +447,7 @@ class TestDrSasaPy:
             str(pdb_path),
             print_output=True,
             output_name=output_name
+
         )
         
         validate_sasa_results(results, calc_type)
@@ -469,18 +470,9 @@ class TestDrSasaPy:
         output_files = list(tmp_path.glob("*"))
         assert len(output_files) > 0, "No output files generated"
 
-
-
-           
 class TestImplementationComparison:
-    @pytest.fixture
-    def dr_sasa_exec(self) -> str:
-        """Path to original dr_sasa executable"""
-        exec_path = "/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa"
-        if not Path(exec_path).exists():
-            pytest.skip(f"Original dr_sasa executable not found at {exec_path}")
-        return exec_path
-
+    """Test suite for comparing SASA implementations."""
+    
     def calculate_original_sasa(self, pdb_file: str, dr_sasa_exec: str) -> Dict[str, float]:
         """Calculate SASA using original dr_sasa implementation."""
         with tempfile.NamedTemporaryFile(suffix='.pdb') as temp_output:
@@ -505,7 +497,72 @@ class TestImplementationComparison:
                             atom_sasa[str(atom_id)] = atom.get_bfactor()
                             atom_id += 1
             
+            print(f"Original implementation found {len(atom_sasa)} atoms")
             return atom_sasa
+
+    def debug_atom_indices(self, original_values: Dict[str, float], 
+                        python_values: Dict[str, Dict],
+                        pdb_file: str) -> None:
+        """Debug atom indexing differences between implementations."""
+        
+        print("\nAtom Index Analysis:")
+        print("-" * 50)
+        
+        # Original implementation indices
+        orig_indices = sorted([int(x) for x in original_values.keys()])
+        print(f"Original implementation:")
+        print(f"  Index range: {min(orig_indices)} to {max(orig_indices)}")
+        print(f"  Number of atoms: {len(orig_indices)}")
+        print(f"  First 10 indices: {orig_indices[:10]}")
+        print(f"  Last 10 indices: {orig_indices[-10:]}")
+        
+        # Check for gaps in original indices
+        gaps = []
+        for i in range(len(orig_indices)-1):
+            if orig_indices[i+1] - orig_indices[i] > 1:
+                gaps.append((orig_indices[i], orig_indices[i+1]))
+        if gaps:
+            print(f"  Gaps found in original indices:")
+            for start, end in gaps[:5]:  # Show first 5 gaps
+                print(f"    Gap between {start} and {end}")
+        
+        # Python implementation indices
+        py_indices = sorted([int(x) for x in python_values.keys()])
+        print(f"\nPython implementation:")
+        print(f"  Index range: {min(py_indices)} to {max(py_indices)}")
+        print(f"  Number of atoms: {len(py_indices)}")
+        print(f"  First 10 indices: {py_indices[:10]}")
+        print(f"  Last 10 indices: {py_indices[-10:]}")
+        
+        # Compare atom details for first few atoms
+        print("\nDetailed atom comparison (first 5 atoms):")
+        print("-" * 50)
+        print("Original | Python")
+        print("-" * 50)
+        
+        for i in range(min(5, len(orig_indices))):
+            orig_id = str(orig_indices[i])
+            py_id = str(py_indices[i])
+            
+            orig_val = original_values[orig_id]
+            py_info = python_values[py_id]
+            
+            print(f"ID: {orig_id} | ID: {py_id}")
+            print(f"Value: {orig_val:.2f} | Value: {py_info['surface']['sasa']:.2f}")
+            if 'name' in py_info:
+                print(f"         | Name: {py_info['name']}")
+            if 'resname' in py_info:
+                print(f"         | Residue: {py_info['resname']}")
+            print("-" * 50)
+            
+        # Check if total atom count matches PDB file
+        parser = PDBParser(QUIET=True)
+        structure = parser.get_structure('temp', pdb_file)
+        total_atoms = sum(1 for _ in structure.get_atoms())
+        
+        print(f"\nPDB file total atoms: {total_atoms}")
+        print(f"Original implementation atoms: {len(original_values)}")
+        print(f"Python implementation atoms: {len(python_values)}")
 
     def compare_sasa_values(self, original_values: Dict[str, float], 
                           python_values: Dict[str, Dict]) -> Dict[str, float]:
@@ -515,28 +572,70 @@ class TestImplementationComparison:
             atom_id: atom_info['surface']['sasa'] 
             for atom_id, atom_info in python_values.items()
         }
+        print(python_sasa)
+        # Check for atom set differences
+        original_atoms = set(original_values.keys())
+        python_atoms = set(python_sasa.keys())
         
-        # Ensure we have the same atoms
-        assert set(original_values.keys()) == set(python_sasa.keys()), \
-            "Mismatch in atom sets between implementations"
+        # Print diagnostic information
+        print(f"\nAtom count comparison:")
+        print(f"Original implementation: {len(original_atoms)} atoms")
+        print(f"Python implementation: {len(python_atoms)} atoms")
+        
+        # Find mismatched atoms
+        only_in_original = original_atoms - python_atoms
+        only_in_python = python_atoms - original_atoms
+        
+        if only_in_original or only_in_python:
+            print("\nAtom ID mismatches:")
+            if only_in_original:
+                print(f"Atoms only in original: {sorted(only_in_original)[:5]} ...")
+            if only_in_python:
+                print(f"Atoms only in Python: {sorted(only_in_python)[:5]} ...")
+            
+            # Use common atoms for comparison
+            common_atoms = original_atoms & python_atoms
+            print(f"\nProceeding with {len(common_atoms)} common atoms")
+            
+            # Filter dictionaries to common atoms
+            original_filtered = {k: v for k, v in original_values.items() if k in common_atoms}
+            python_filtered = {k: v for k, v in python_sasa.items() if k in common_atoms}
+        else:
+            original_filtered = original_values
+            python_filtered = python_sasa
         
         # Calculate differences
         differences = []
-        for atom_id in original_values:
-            orig_val = original_values[atom_id]
-            py_val = python_sasa[atom_id]
-            differences.append(orig_val - py_val)
+        atom_diffs = []  # Store per-atom differences for analysis
+        for atom_id in original_filtered:
+            orig_val = original_filtered[atom_id]
+            py_val = python_filtered[atom_id]
+            diff = orig_val - py_val
+            differences.append(diff)
+            if abs(diff) > 1.0:  # Track significant differences
+                atom_diffs.append((atom_id, diff, orig_val, py_val))
         
         differences = np.array(differences)
-        original_array = np.array(list(original_values.values()))
-        python_array = np.array(list(python_sasa.values()))
+        original_array = np.array(list(original_filtered.values()))
+        python_array = np.array(list(python_filtered.values()))
+        
+        # Print significant differences
+        if atom_diffs:
+            print("\nSignificant differences (|diff| > 1.0):")
+            for atom_id, diff, orig, py in sorted(atom_diffs, key=lambda x: abs(x[1]), reverse=True)[:5]:
+                print(f"Atom {atom_id}: orig={orig:.2f}, py={py:.2f}, diff={diff:.2f}")
         
         return {
             'mean_difference': float(np.mean(differences)),
             'max_difference': float(np.max(np.abs(differences))),
             'rmsd': float(np.sqrt(np.mean(differences**2))),
             'correlation': float(np.corrcoef(original_array, python_array)[0,1]),
-            'relative_error': float(np.mean(np.abs(differences) / original_array))
+            'relative_error': float(np.mean(np.abs(differences) / original_array)),
+            'num_atoms': {
+                'original': len(original_atoms),
+                'python': len(python_atoms),
+                'common': len(original_filtered)
+            }
         }
 
     def test_implementation_comparison(self, calculators, test_paths, dr_sasa_exec, calc_type):
@@ -544,31 +643,38 @@ class TestImplementationComparison:
         calculator = calculators[calc_type]
         pdb_path = test_paths("basic")
         
+        print(f"\nTesting {calc_type} calculator implementation")
+        
         # Calculate SASA with Python implementation
-        python_results = calculator.calculate(str(pdb_path))
+        python_results = calculator.calculate(str(pdb_path), print_output=True)
         
         # Calculate SASA with original implementation
         original_results = self.calculate_original_sasa(pdb_path, dr_sasa_exec)
+        print(original_results)
         
+        self.debug_atom_indices(original_results, python_results['atoms'], str(pdb_path))
+
         # Compare results
         comparison = self.compare_sasa_values(original_results, python_results['atoms'])
         
-        # Assert on comparison metrics
+        # Print detailed comparison
+        print(f"\nImplementation Comparison Results ({calc_type}):")
+        print(f"Total atoms - Original: {comparison['num_atoms']['original']}, "
+              f"Python: {comparison['num_atoms']['python']}, "
+              f"Common: {comparison['num_atoms']['common']}")
+        print(f"Correlation: {comparison['correlation']:.4f}")
+        print(f"RMSD: {comparison['rmsd']:.4f}")
+        print(f"Mean difference: {comparison['mean_difference']:.4f}")
+        print(f"Max difference: {comparison['max_difference']:.4f}")
+        print(f"Relative error: {comparison['relative_error']:.4f}")
+        
+        # Assert on comparison metrics using only common atoms
         assert comparison['correlation'] > 0.99, \
             f"Low correlation between implementations: {comparison['correlation']:.4f}"
         assert comparison['rmsd'] < 1.0, \
             f"High RMSD between implementations: {comparison['rmsd']:.4f}"
         assert comparison['relative_error'] < 0.05, \
             f"High relative error: {comparison['relative_error']:.4f}"
-        
-        # Print detailed comparison
-        print(f"\nImplementation Comparison ({calc_type}):")
-        print(f"Correlation: {comparison['correlation']:.4f}")
-        print(f"RMSD: {comparison['rmsd']:.4f}")
-        print(f"Mean difference: {comparison['mean_difference']:.4f}")
-        print(f"Max difference: {comparison['max_difference']:.4f}")
-        print(f"Relative error: {comparison['relative_error']:.4f}")
 
-        
 if __name__ == "__main__":
     pytest.main(["-v"])

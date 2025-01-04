@@ -2,7 +2,7 @@
 
 # Configuration
 TEST_PDB="/home/alessio/dr_sasa_python/tests/data/pred.pdb"
-DR_SASA="/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa"  # Path to dr_sasa executable
+DR_SASA="/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa"
 
 OUTPUT_DIR="test_results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

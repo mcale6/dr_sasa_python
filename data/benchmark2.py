@@ -1,6 +1,6 @@
 import json
+from datetime import datetime
 import time
-import sys
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import pandas as pd
@@ -10,8 +10,7 @@ import argparse
 import psutil
 import os
 import threading
-sys.path.append(str("/home/alessio/dr_sasa_python/build/lib"))
-import dr_sasa_py
+import dr_sasa_python as sasa
 import freesasa
 from Bio.PDB import *
 from Bio.PDB.SASA import ShrakeRupley
@@ -123,43 +122,7 @@ class CPUMonitor:
                 print(f"Monitoring error: {str(e)}")
                 pass
 
-def create_comparison_plots(results: Dict, output_dir: Path):
-    """Create detailed comparison plots between different implementations."""
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    
-    # Scatter plot of SASA values
-    plt.figure(figsize=(12, 8))
-    for pdb_id, result in results.items():
-        if 'error' not in result:
-            plt.scatter(result['values']['dr_sasa_original'],
-                       result['values']['dr_sasa_py'],
-                       alpha=0.5, label=pdb_id)
-    
-    plt.plot([0, plt.xlim()[1]], [0, plt.xlim()[1]], 'k--')
-    plt.xlabel('Original dr_sasa SASA values')
-    plt.ylabel('Python dr_sasa SASA values')
-    plt.title('Comparison of Original vs Python Implementation')
-    plt.savefig(output_dir / 'implementation_comparison.png')
-    plt.close()
-    
-    # Distribution of differences
-    differences = []
-    for result in results.values():
-        if 'error' not in result:
-            diff = np.array(result['values']['dr_sasa_py']) - \
-                   np.array(result['values']['dr_sasa_original'])
-            differences.extend(diff)
-    
-    plt.figure(figsize=(10, 6))
-    sns.histplot(differences, bins=50)
-    plt.xlabel('SASA Difference (Python - Original)')
-    plt.ylabel('Count')
-    plt.title('Distribution of SASA Differences')
-    plt.savefig(output_dir / 'differences_distribution.png')
-    plt.close()
-
-def calculate_original_dr_sasa(pdb_file: str, dr_sasa_exec: str = "/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa") -> Tuple[np.ndarray, float]:
+def calculate_original_dr_sasa(pdb_file: str, dr_sasa_exec: str) -> Tuple[np.ndarray, float]:
     """Calculate SASA using original C++ implementation."""
     # Create temporary output PDB file
     with tempfile.NamedTemporaryFile(suffix='.pdb', mode='w+') as temp_output:
@@ -191,10 +154,9 @@ def calculate_original_dr_sasa(pdb_file: str, dr_sasa_exec: str = "/home/alessio
         calc_time = time.time() - start_time
         return np.array(atom_sasa), calc_time
 
-
 def calculate_dr_sasa(pdb_file: str) -> Tuple[np.ndarray, float]:
     """Calculate SASA using dr_sasa."""
-    calculator = dr_sasa_py.SimpleSASA(probe_radius=1.4)
+    calculator = sasa.SimpleSASA(probe_radius=1.4)
     
     start_time = time.time()
     result = calculator.calculate(str(pdb_file))
@@ -308,19 +270,53 @@ def analyze_structure(pdb_file: str, dr_sasa_exec: str) -> Dict:
     
     return results
 
+def create_comparison_plots(results: Dict, output_dir: Path):
+    """Create detailed comparison plots between different implementations."""
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    
+    # Scatter plot of SASA values
+    plt.figure(figsize=(12, 8))
+    for pdb_id, result in results.items():
+        if 'error' not in result:
+            plt.scatter(result['values']['dr_sasa_original'],
+                       result['values']['dr_sasa_py'],
+                       alpha=0.5, label=pdb_id)
+    
+    plt.plot([0, plt.xlim()[1]], [0, plt.xlim()[1]], 'k--')
+    plt.xlabel('Original dr_sasa SASA values')
+    plt.ylabel('Python dr_sasa SASA values')
+    plt.title('Comparison of Original vs Python Implementation')
+    plt.savefig(output_dir / 'implementation_comparison.png')
+    plt.close()
+    
+    # Distribution of differences
+    differences = []
+    for result in results.values():
+        if 'error' not in result:
+            diff = np.array(result['values']['dr_sasa_py']) - \
+                   np.array(result['values']['dr_sasa_original'])
+            differences.extend(diff)
+    
+    plt.figure(figsize=(10, 6))
+    sns.histplot(differences, bins=50)
+    plt.xlabel('SASA Difference (Python - Original)')
+    plt.ylabel('Count')
+    plt.title('Distribution of SASA Differences')
+    plt.savefig(output_dir / 'differences_distribution.png')
+    plt.close()
+
 def main():
     parser = argparse.ArgumentParser(description='Compare SASA calculations across different tools')
     parser.add_argument('-dataset_json', default="data/dataset.json", help='Path to dataset JSON file')
-    parser.add_argument('-pdb_dir', default="data/PRODIGYdataset_fixed", help='Directory containing PDB files')
+    parser.add_argument('-pdb_dir', default="data/PRODIGYdataset", help='Directory containing PDB files')
     parser.add_argument('-output_dir', default="data/benchmark_results", help='Directory for output files')
-    parser.add_argument('-dr_sasa_exec', 
-                       default="/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa",
-                       help='Path to original dr_sasa executable')
-    parser.add_argument('--max_structures', type=int, default=None,
-                       help='Maximum number of structures to process (default: all)')
+    parser.add_argument('-dr_sasa_exec', default="/home/alessio/dr_sasa_python/dr_sasa_n/build/dr_sasa",  help='Path to original dr_sasa executable')
+    parser.add_argument('--max_structures', type=int, default=None, help='Maximum number of structures to process (default: all)')
     
     args = parser.parse_args()
     
+
     # Load dataset
     with open(args.dataset_json) as f:
         dataset = json.load(f)
@@ -347,7 +343,8 @@ def main():
     cpu_monitor.start()
     
     # Create output directory
-    output_dir = Path(args.output_dir)
+    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_dir = Path(f"{args.output_dir}_{current_time}")
     output_dir.mkdir(exist_ok=True)
         
     # Process structures

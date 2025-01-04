@@ -21,7 +21,9 @@ authors = [
 dependencies = [
     "numpy>=1.19.0",
     "pandas>=1.0.0",
-    "biopython",  # Added for PDB parsing in tests
+    "biopython",
+    "tqdm",
+    "freesasa",
 ]
 
 [project.optional-dependencies]
