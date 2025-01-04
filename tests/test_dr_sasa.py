@@ -487,15 +487,15 @@ class TestImplementationComparison:
             parser = PDBParser(QUIET=True)
             structure = parser.get_structure('protein', temp_output.name)
             
-            # Create dictionary mapping atom ID to SASA value
+            # Create dictionary mapping atom ID to SASA value using PDB serial numbers
             atom_sasa = {}
-            atom_id = 1  # Assuming 1-based indexing
             for model in structure:
                 for chain in model:
                     for residue in chain:
                         for atom in residue:
-                            atom_sasa[str(atom_id)] = atom.get_bfactor()
-                            atom_id += 1
+                            # Get the atom's serial number from the PDB file
+                            serial_number = str(atom.serial_number)
+                            atom_sasa[serial_number] = atom.get_bfactor()
             
             print(f"Original implementation found {len(atom_sasa)} atoms")
             return atom_sasa
@@ -572,7 +572,7 @@ class TestImplementationComparison:
             atom_id: atom_info['surface']['sasa'] 
             for atom_id, atom_info in python_values.items()
         }
-        print(python_sasa)
+        #print(python_sasa)
         # Check for atom set differences
         original_atoms = set(original_values.keys())
         python_atoms = set(python_sasa.keys())
@@ -650,7 +650,7 @@ class TestImplementationComparison:
         
         # Calculate SASA with original implementation
         original_results = self.calculate_original_sasa(pdb_path, dr_sasa_exec)
-        print(original_results)
+        #print(original_results)
         
         self.debug_atom_indices(original_results, python_results['atoms'], str(pdb_path))
 
