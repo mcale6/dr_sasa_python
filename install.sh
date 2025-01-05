@@ -12,10 +12,10 @@ sudo apt-get install -y \
     cmake \
     git \
     python3 \
-    #python3-dev \
-    #python3-venv \
-    #python3-full \
-    #ocl-icd-opencl-dev
+    python3-dev \
+    python3-venv \
+    python3-full \
+    ocl-icd-opencl-dev
 
 # 2. Create and activate virtual environment
 echo "Setting up virtual environment..."
