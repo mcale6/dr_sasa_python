@@ -74,8 +74,7 @@ sed -i '/export PYTHONPATH.*dr_sasa_python/d' "$HOME/.bashrc"
     echo "# DR-SASA Python Virtual Environment and Path"
     echo "source $VENV_PATH/bin/activate"
     #echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH:$REPO_PATH/dr_sasa_python/bindings/python"
-    echo "export PYTHONPATH=$REPO_PATH/dr_sasa_python/bindings/python:\$PYTHONPATH"
-    #echo "export LD_LIBRARY_PATH=$REPO_PATH/build/lib:\$LD_LIBRARY_PATH"
+    echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH"
 } >> "$HOME/.bashrc"
 
 
