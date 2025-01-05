@@ -28,6 +28,7 @@ sudo apt-get update && sudo apt-get install -y \
 echo "Setting up virtual environment..."
 if [ ! -d "$VENV_PATH" ]; then
     python3 -m venv "$VENV_PATH"
+
 fi
 source "$VENV_PATH/bin/activate"
 
@@ -43,11 +44,13 @@ pip install "pybind11[global]" numpy pandas pytest pytest-cov
 if [ ! -d "$REPO_PATH" ]; then
     echo "Cloning dr_sasa_python repository..."
     git clone --recursive https://github.com/mcale6/dr_sasa_python.git "$REPO_PATH"
+
 else
     echo "Updating existing repository..."
     cd "$REPO_PATH"
     git pull
     git submodule update --init --recursive
+
 fi
 
 # 6. Install the package in development mode
@@ -60,7 +63,7 @@ echo "Building the project..."
 mkdir -p "$BUILD_PATH"
 cd "$BUILD_PATH"
 cmake ..
-make -j$(nproc)
+make -j$(nproc)  # Use all available CPU cores
 
 # 8. Set up environment variables
 echo "Setting up environment variables..."
@@ -76,7 +79,6 @@ sed -i '/export PYTHONPATH.*dr_sasa_python/d' "$HOME/.bashrc"
     echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH"
 } >> "$HOME/.bashrc"
 
-source ~/.bashrc
 # 9. Display installation summary
 echo "
 Installation Summary:
