@@ -5,18 +5,16 @@ set -e  # Exit on any error
 echo "Starting dr_sasa_python installation..."
 
 # 1. System updates and dependencies (if on a fresh VM)
-echo "Installing system dependencies..."
-sudo apt-get update
 sudo apt-get install -y \
     build-essential \
     cmake \
     git \
     python3 \
     python3-dev \
-    python3.10-venv \
+    python3-venv \
     python3-full \
     ocl-icd-opencl-dev
-
+    
 # 2. Create and activate virtual environment
 echo "Setting up virtual environment..."
 python3 -m venv ~/dr_sasa_venv
