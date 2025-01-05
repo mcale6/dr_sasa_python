@@ -73,7 +73,7 @@ echo "Setting up environment variables..."
 {
     echo "# DR-SASA Python Virtual Environment and Path"
     echo "source $VENV_PATH/bin/activate"
-    echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH"
+    echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH:$REPO_PATH/dr_sasa_python/bindings/python"
 } >> "$HOME/.bashrc"
 
 source ~/.bashrc
