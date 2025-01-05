@@ -63,7 +63,7 @@ echo "Building the project..."
 mkdir -p "$BUILD_PATH"
 cd "$BUILD_PATH"
 cmake ..
-make -j$(nproc)  # Use all available CPU cores
+make -j4
 
 # 8. Set up environment variables
 echo "Setting up environment variables..."
