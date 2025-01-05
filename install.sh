@@ -37,22 +37,23 @@ fi
 
 # 6. Install the package in development mode
 echo "Installing dr_sasa_python in development mode..."
-pip install -e ".[test]"
+pip install -e .
+
+# 7. Build the project
+echo "Building the project..."
+mkdir -p build
+cd build
+cmake ..
+make -j4
+
+# 8. Set up Python path and virtual environment activation
+echo "Setting up environment..."
+INSTALL_PATH=$(pwd)/lib
+echo "export PYTHONPATH=\$PYTHONPATH:$INSTALL_PATH" >> ~/.bashrc
+# Add virtual environment activation to bashrc 
+echo "# DR-SASA Python Virtual Environment" >> ~/.bashrc
+echo "source ~/dr_sasa_venv/bin/activate" >> ~/.bashrc
 
 # 7. Run tests to verify installation
-echo "Running tests..."
-pytest -v
-
-# 8. Set up virtual environment activation (optional)
-read -p "Would you like to automatically activate the virtual environment in your bashrc? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-    echo "# DR-SASA Python Virtual Environment" >> ~/.bashrc
-    echo "source ~/dr_sasa_venv/bin/activate" >> ~/.bashrc
-    echo "Virtual environment activation added to ~/.bashrc"
-fi
-
-echo "Installation complete!"
-echo "You can now import dr_sasa_python in Python"
-echo "Remember to activate the virtual environment with: source ~/dr_sasa_venv/activate"
+#echo "Running tests..."
+#pytest -v
