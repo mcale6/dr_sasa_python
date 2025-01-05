@@ -33,11 +33,10 @@ if [ ! -d "dr_sasa_python" ] && [ ! -f "setup.py" ]; then
     echo "Cloning dr_sasa_python repository..."
     git clone --recursive https://github.com/mcale6/dr_sasa_python.git
     cd dr_sasa_python
+    # 6. Install the package in development mode
+    echo "Installing dr_sasa_python in development mode..."
+    pip install -e .
 fi
-
-# 6. Install the package in development mode
-echo "Installing dr_sasa_python in development mode..."
-pip install -e .
 
 # 7. Build the project
 echo "Building the project..."
