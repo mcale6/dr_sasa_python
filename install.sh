@@ -73,9 +73,8 @@ sed -i '/export PYTHONPATH.*dr_sasa_python/d' "$HOME/.bashrc"
 {
     echo "# DR-SASA Python Virtual Environment and Path"
     echo "source $VENV_PATH/bin/activate"
-    echo "export PYTHONPATH=$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH:$REPO_PATH/dr_sasa_python/bindings/python:\$PYTHONPATH"
+    echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH"
 } >> "$HOME/.bashrc"
-
 
 source ~/.bashrc
 # 9. Display installation summary
@@ -85,7 +84,7 @@ Installation Summary:
 Virtual Environment: $VENV_PATH
 Repository: $REPO_PATH
 Build Directory: $BUILD_PATH
-Python Path: ${PYTHONPATH}
+Python Path: $BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH
 
 To start using dr_sasa_python:
 1. Close and reopen your terminal, or run: source ~/.bashrc
