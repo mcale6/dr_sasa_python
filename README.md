@@ -55,18 +55,36 @@ Check out [Benchmark Results](data/README.md)
 ## Quick Installation
 
 ### Requirements
-- Python 3.8+
-- NumPy
+- Python 3.10+ (using python3-venv)
 - C++17 compatible compiler
 - CMake 3.15+
 - pybind11
+- scikit-build
 
-### One-Line Installation
+### One-Line Installation in Colab
 Download and run the installation script:
 ```bash
 curl -s https://raw.githubusercontent.com/mcale6/dr_sasa_python/main/install.sh | bash
 ```
-Check install.sh for **Manual Installation Steps**
+
+### Or step by step 
+Check install2.sh using python3.10 (tested on Apple M1):
+```bash
+git clone --recursive https://github.com/mcale6/dr_sasa_python.git 
+cd dr_sasa_python
+
+python3.10 -m venv dr_sasa_venv
+source dr_sasa_venv/bin/activate
+
+pip install -e .
+
+cmake -B build && cmake --build build && cmake --install build
+
+export PYTHONPATH="$PWD/dr_sasa_venv/lib/python3.10/site-packages:$PWD/build:$PYTHONPATH"
+
+pytest -v
+```
+
 
 ### Important Notes
 

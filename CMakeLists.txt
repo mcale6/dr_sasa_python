@@ -26,6 +26,8 @@ else()
     add_definitions(-Wall -O3 -march=native -mtune=native)
 endif()
 
+# Python configuration
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
 # Installation prefix configuration
 if(SKBUILD)
     set(CMAKE_INSTALL_PREFIX ${SKBUILD_PLATLIB}/dr_sasa_python)
@@ -70,8 +72,7 @@ if(OpenCL_FOUND)
     add_definitions(-DUSE_GPU)
 endif()
 
-## 3. Python and pybind11
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
+## 3. pybind11
 find_package(pybind11 REQUIRED)
 
 # Source files configuration

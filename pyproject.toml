@@ -4,7 +4,7 @@ requires = [
     "wheel",
     "cmake>=3.16",
     "scikit-build>=0.13",
-    "pybind11>=2.6.0",
+    "pybind11[global]>=2.6.0",  # Note [global]
 ]
 build-backend = "setuptools.build_meta"
 
@@ -19,11 +19,13 @@ authors = [
     {name = "Alessio"}
 ]
 dependencies = [
-    "numpy>=1.19.0",
-    "pandas>=1.0.0",
+    "numpy",
+    "pandas",
     "biopython",
     "tqdm",
     "freesasa",
+    "pytest",
+    "pytest-cov",
 ]
 
 [project.optional-dependencies]
