@@ -2,7 +2,7 @@
 git clone --recursive https://github.com/mcale6/dr_sasa_python.git 
 cd dr_sasa_python
 
-python3.10 -m venv dr_sasa_venv
+python -m venv dr_sasa_venv
 source dr_sasa_venv/bin/activate
 
 pip install -e .
