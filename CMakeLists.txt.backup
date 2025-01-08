@@ -1,60 +1,16 @@
-# Minimum CMake version
 cmake_minimum_required(VERSION 3.10)
-
-# Project definition
 project(dr_sasa_python VERSION 0.1.0)
 
-# Basic configuration
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# Virtual Environment Detection
-if(DEFINED ENV{VIRTUAL_ENV})
-    message(STATUS "Virtual environment found at: $ENV{VIRTUAL_ENV}")
-    set(Python_ROOT_DIR "$ENV{VIRTUAL_ENV}")
-    set(Python_EXECUTABLE "$ENV{VIRTUAL_ENV}/bin/python")
-else()
-    message(WARNING "No virtual environment detected! It's recommended to use a virtual environment.")
-endif()
-
-# Platform-specific compiler settings
-if(APPLE)
-    set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
-    set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
-else()
-    # Optimization flags for non-Apple platforms
-    add_definitions(-Wall -O3 -march=native -mtune=native)
-endif()
-
-# Installation prefix configuration
+# Set installation prefix and paths
 if(SKBUILD)
     set(CMAKE_INSTALL_PREFIX ${SKBUILD_PLATLIB}/dr_sasa_python)
     set(INSTALL_DIR "bindings/python")  # Relative to dr_sasa_python package
 else()
-    if(DEFINED ENV{VIRTUAL_ENV})
-        # Make sure to find Python before using its version
-        find_package(Python COMPONENTS Interpreter Development REQUIRED)
-        # Use explicit version numbers
-        set(CMAKE_INSTALL_PREFIX "$ENV{VIRTUAL_ENV}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages/dr_sasa_python")
-        message(STATUS "Setting install prefix to virtual environment: ${CMAKE_INSTALL_PREFIX}")
-    else()
-        set(CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages/dr_sasa_python")
-    endif()
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX}/lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages/dr_sasa_python)
     set(INSTALL_DIR "bindings/python")  # Keep same structure
 endif()
 
-# Dependencies
-## 1. OpenMP Configuration
-if(APPLE)
-    # OpenMP Settings for Apple
-    set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp")
-    set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp")
-    set(OpenMP_C_LIB_NAMES "omp")
-    set(OpenMP_CXX_LIB_NAMES "omp")
-    set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/libomp/lib/libomp.dylib")
-    include_directories("/opt/homebrew/opt/libomp/include")
-endif()
-
+# OpenMP configuration
 find_package(OpenMP)
 if(OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -62,7 +18,16 @@ if(OPENMP_FOUND)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-## 2. OpenCL Configuration
+# Basic configuration
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# Optimization flags
+if(NOT APPLE)
+    add_definitions(-Wall -O3 -march=native -mtune=native)
+endif()
+
+# OpenCL configuration
 find_package(OpenCL REQUIRED)
 if(OpenCL_FOUND)
     message(STATUS "OpenCL found: ${OpenCL_LIBRARIES}")
@@ -70,11 +35,11 @@ if(OpenCL_FOUND)
     add_definitions(-DUSE_GPU)
 endif()
 
-## 3. Python and pybind11
+# Find Python and pybind11
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 REQUIRED)
 
-# Source files configuration
+# Core source files
 set(CORE_SOURCES
     dr_sasa_n/src/atom_struct.cpp
     dr_sasa_n/src/residue_struct.cpp
@@ -91,8 +56,7 @@ set(CORE_SOURCES
     dr_sasa_n/src/stdafx.cpp
 )
 
-# Library targets
-## 1. Core library
+# Core library
 add_library(dr_sasa_core STATIC ${CORE_SOURCES})
 target_include_directories(dr_sasa_core
     PUBLIC 
@@ -106,7 +70,7 @@ target_link_libraries(dr_sasa_core
         $<$<BOOL:${OpenCL_FOUND}>:OpenCL::OpenCL>
 )
 
-## 2. Python module
+# Python module (creates dr_sasa_py.so)
 pybind11_add_module(dr_sasa_py MODULE
     dr_sasa_python/bindings/python/src/atom_bindings.cpp
     dr_sasa_python/bindings/python/src/sasa_calculators.cpp
@@ -123,12 +87,12 @@ target_link_libraries(dr_sasa_py PRIVATE
     dr_sasa_core
 )
 
-# Installation configuration
+# Installation - puts dr_sasa_py.so in the right place
 install(TARGETS dr_sasa_py 
         LIBRARY DESTINATION ${INSTALL_DIR}
         RUNTIME DESTINATION ${INSTALL_DIR})
 
-# Package version configuration
+# Package version file
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
     "${CMAKE_BINARY_DIR}/dr_sasa_pythonConfigVersion.cmake"
@@ -136,7 +100,7 @@ write_basic_package_version_file(
     COMPATIBILITY AnyNewerVersion
 )
 
-# Configuration summary
+# Print configuration info
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Installation prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Install directory: ${INSTALL_DIR}")
