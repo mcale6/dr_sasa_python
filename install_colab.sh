@@ -21,8 +21,8 @@ fi
 echo "Using Python version: $PYTHON_VERSION (command: $PYTHON_CMD)"
 
 # Script variables
-VENV_PATH="$HOME/dr_sasa_venv"
 REPO_PATH="$HOME/dr_sasa_python"
+VENV_PATH="$REPO_PATH/.venv"  # Virtual environment inside the repo
 BUILD_PATH="$REPO_PATH/build"
 
 echo "Starting dr_sasa_python installation..."
@@ -31,7 +31,6 @@ echo "Starting dr_sasa_python installation..."
 echo "Installing system dependencies..."
 # Construct package names based on detected version
 PYTHON_PACKAGES="python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv"
-
 sudo apt-get update && sudo apt-get install -y \
     build-essential \
     cmake \
@@ -40,22 +39,7 @@ sudo apt-get update && sudo apt-get install -y \
     python3-full \
     ocl-icd-opencl-dev
 
-# 2. Create and activate virtual environment
-echo "Setting up virtual environment..."
-if [ ! -d "$VENV_PATH" ]; then
-    $PYTHON_CMD -m venv "$VENV_PATH"
-fi
-source "$VENV_PATH/bin/activate"
-
-# 3. Install Python package management tools
-echo "Installing Python package management tools..."
-pip install --upgrade pip setuptools wheel build scikit-build
-
-# 4. Install build dependencies
-echo "Installing build dependencies..."
-pip install "pybind11[global]" numpy pandas pytest pytest-cov
-
-# 5. Clone or update repository
+# 2. Clone or update repository first (since venv will be inside)
 if [ ! -d "$REPO_PATH" ]; then
     echo "Cloning dr_sasa_python repository..."
     git clone --recursive https://github.com/mcale6/dr_sasa_python.git "$REPO_PATH"
@@ -65,6 +49,22 @@ else
     git pull
     git submodule update --init --recursive
 fi
+
+# 3. Create and activate virtual environment
+echo "Setting up virtual environment..."
+if [ ! -d "$VENV_PATH" ]; then
+    cd "$REPO_PATH"
+    $PYTHON_CMD -m venv .venv
+fi
+source "$VENV_PATH/bin/activate"
+
+# 4. Install Python package management tools
+echo "Installing Python package management tools..."
+pip install --upgrade pip setuptools wheel build scikit-build
+
+# 5. Install build dependencies
+echo "Installing build dependencies..."
+pip install "pybind11[global]" numpy pandas pytest pytest-cov
 
 # 6. Install the package in development mode
 echo "Installing dr_sasa_python in development mode..."
@@ -98,8 +98,8 @@ Installation Summary:
 --------------------
 Python Version: $PYTHON_VERSION
 Python Command: $PYTHON_CMD
-Virtual Environment: $VENV_PATH
 Repository: $REPO_PATH
+Virtual Environment: $VENV_PATH
 Build Directory: $BUILD_PATH
 Python Path: ${PYTHONPATH}
 

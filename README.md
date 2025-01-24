@@ -64,7 +64,7 @@ Check out [Benchmark Results](data/README.md)
 ### One-Line Installation in Colab
 Download and run the installation script:
 ```bash
-curl -s https://raw.githubusercontent.com/mcale6/dr_sasa_python/main/install.sh | bash
+curl -s https://raw.githubusercontent.com/mcale6/dr_sasa_python/main/install_colab.sh | sudo bash
 ```
 
 ### Or step by step 
