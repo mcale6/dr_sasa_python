@@ -1,9 +1,24 @@
 #!/bin/bash
 # Installation script for dr_sasa_python using a virtual environment
-
 # Exit on any error and enable command printing
 set -e
 set -x  # Print commands being executed
+
+# Detect Python version
+echo "Detecting Python version..."
+# Try python3.10 first, then fall back to python3
+if command -v python3.10 &> /dev/null; then
+    PYTHON_CMD="python3.10"
+    PYTHON_VERSION="3.10"
+elif command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+    PYTHON_VERSION=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+else
+    echo "Error: Python 3.x not found"
+    exit 1
+fi
+
+echo "Using Python version: $PYTHON_VERSION (command: $PYTHON_CMD)"
 
 # Script variables
 VENV_PATH="$HOME/dr_sasa_venv"
@@ -14,21 +29,21 @@ echo "Starting dr_sasa_python installation..."
 
 # 1. System updates and dependencies
 echo "Installing system dependencies..."
+# Construct package names based on detected version
+PYTHON_PACKAGES="python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv"
+
 sudo apt-get update && sudo apt-get install -y \
     build-essential \
     cmake \
     git \
-    python3 \
-    python3-dev \
-    python3-venv \
+    ${PYTHON_PACKAGES} \
     python3-full \
     ocl-icd-opencl-dev
 
 # 2. Create and activate virtual environment
 echo "Setting up virtual environment..."
 if [ ! -d "$VENV_PATH" ]; then
-    python3 -m venv "$VENV_PATH"
-
+    $PYTHON_CMD -m venv "$VENV_PATH"
 fi
 source "$VENV_PATH/bin/activate"
 
@@ -44,13 +59,11 @@ pip install "pybind11[global]" numpy pandas pytest pytest-cov
 if [ ! -d "$REPO_PATH" ]; then
     echo "Cloning dr_sasa_python repository..."
     git clone --recursive https://github.com/mcale6/dr_sasa_python.git "$REPO_PATH"
-
 else
     echo "Updating existing repository..."
     cd "$REPO_PATH"
     git pull
     git submodule update --init --recursive
-
 fi
 
 # 6. Install the package in development mode
@@ -83,6 +96,8 @@ sed -i '/export PYTHONPATH.*dr_sasa_python/d' "$HOME/.bashrc"
 echo "
 Installation Summary:
 --------------------
+Python Version: $PYTHON_VERSION
+Python Command: $PYTHON_CMD
 Virtual Environment: $VENV_PATH
 Repository: $REPO_PATH
 Build Directory: $BUILD_PATH
