@@ -2,11 +2,10 @@
 # Installation script for dr_sasa_python using a virtual environment
 # Exit on any error and enable command printing
 set -e
-set -x  # Print commands being executed
+set -x
 
 # Detect Python version
 echo "Detecting Python version..."
-# Try python3.10 first, then fall back to python3
 if command -v python3.10 &> /dev/null; then
     PYTHON_CMD="python3.10"
     PYTHON_VERSION="3.10"
@@ -18,33 +17,30 @@ else
     exit 1
 fi
 
-echo "Using Python version: $PYTHON_VERSION (command: $PYTHON_CMD)"
-
 # Script variables
 REPO_PATH="$HOME/dr_sasa_python"
-VENV_PATH="$REPO_PATH/.venv"  # Virtual environment inside the repo
+VENV_PATH="$REPO_PATH/.venv"
 BUILD_PATH="$REPO_PATH/build"
 
 echo "Starting dr_sasa_python installation..."
 
 # 1. System updates and dependencies
 echo "Installing system dependencies..."
-# Construct package names based on detected version
 PYTHON_PACKAGES="python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv"
-sudo apt-get update && sudo apt-get install -y \
+sudo apt-get update || true  # Continue if this fails
+sudo apt-get install -y \
     build-essential \
     cmake \
     git \
     ${PYTHON_PACKAGES} \
     python3-full \
-    ocl-icd-opencl-dev
+    ocl-icd-opencl-dev || true  # Continue if this fails
 
-# 2. Clone or update repository first (since venv will be inside)
+# 2. Clone or update repository first
+echo "Setting up repository..."
 if [ ! -d "$REPO_PATH" ]; then
-    echo "Cloning dr_sasa_python repository..."
     git clone --recursive https://github.com/mcale6/dr_sasa_python.git "$REPO_PATH"
 else
-    echo "Updating existing repository..."
     cd "$REPO_PATH"
     git pull
     git submodule update --init --recursive
@@ -80,7 +76,7 @@ make -j4
 
 # 8. Set up environment variables
 echo "Setting up environment variables..."
-# Remove any existing dr_sasa entries from .bashrc
+# Remove any existing entries
 sed -i '/# DR-SASA Python/d' "$HOME/.bashrc"
 sed -i '/source.*\.venv\/bin\/activate/d' "$HOME/.bashrc"
 sed -i '/export PYTHONPATH.*dr_sasa_python/d' "$HOME/.bashrc"
@@ -89,7 +85,7 @@ sed -i '/export PYTHONPATH.*dr_sasa_python/d' "$HOME/.bashrc"
 {
     echo "# DR-SASA Python Virtual Environment and Path"
     echo "source $REPO_PATH/.venv/bin/activate"
-    echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH"
+    echo "export PYTHONPATH=$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH:\$PYTHONPATH"
 } >> "$HOME/.bashrc"
 
 # 9. Display installation summary
@@ -101,7 +97,7 @@ Python Command: $PYTHON_CMD
 Repository: $REPO_PATH
 Virtual Environment: $REPO_PATH/.venv
 Build Directory: $BUILD_PATH
-Python Path: ${PYTHONPATH}
+Python Path: $BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH
 
 To start using dr_sasa_python:
 1. Close and reopen your terminal, or run: source ~/.bashrc
