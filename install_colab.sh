@@ -6,7 +6,15 @@ set -x
 
 # Detect Python version
 echo "Detecting Python version..."
-if command -v python3.10 &> /dev/null; then
+# Get system Python version first
+SYS_PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+echo "System Python version: $SYS_PYTHON_VERSION"
+
+# Try to use system Python version first, then fall back to Python 3.10
+if command -v python$SYS_PYTHON_VERSION &> /dev/null; then
+    PYTHON_CMD="python$SYS_PYTHON_VERSION"
+    PYTHON_VERSION="$SYS_PYTHON_VERSION"
+elif command -v python3.10 &> /dev/null; then
     PYTHON_CMD="python3.10"
     PYTHON_VERSION="3.10"
 elif command -v python3 &> /dev/null; then
@@ -17,6 +25,8 @@ else
     exit 1
 fi
 
+echo "Using Python version: $PYTHON_VERSION (command: $PYTHON_CMD)"
+
 # Script variables
 REPO_PATH="$HOME/dr_sasa_python"
 VENV_PATH="$REPO_PATH/.venv"
@@ -26,15 +36,18 @@ echo "Starting dr_sasa_python installation..."
 
 # 1. System updates and dependencies
 echo "Installing system dependencies..."
+# Construct package names based on detected version
 PYTHON_PACKAGES="python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv"
-sudo apt-get update || true  # Continue if this fails
+
+# Try to update and install packages, continue if fails (useful for non-Ubuntu systems)
+sudo apt-get update || true
 sudo apt-get install -y \
     build-essential \
     cmake \
     git \
     ${PYTHON_PACKAGES} \
     python3-full \
-    ocl-icd-opencl-dev || true  # Continue if this fails
+    ocl-icd-opencl-dev || true
 
 # 2. Clone or update repository first
 echo "Setting up repository..."
