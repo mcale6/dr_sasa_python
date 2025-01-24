@@ -82,13 +82,13 @@ make -j4
 echo "Setting up environment variables..."
 # Remove any existing dr_sasa entries from .bashrc
 sed -i '/# DR-SASA Python/d' "$HOME/.bashrc"
-sed -i '/source.*dr_sasa_venv\/bin\/activate/d' "$HOME/.bashrc"
+sed -i '/source.*\.venv\/bin\/activate/d' "$HOME/.bashrc"
 sed -i '/export PYTHONPATH.*dr_sasa_python/d' "$HOME/.bashrc"
 
 # Add new environment settings
 {
     echo "# DR-SASA Python Virtual Environment and Path"
-    echo "source $VENV_PATH/bin/activate"
+    echo "source $REPO_PATH/.venv/bin/activate"
     echo "export PYTHONPATH=\$PYTHONPATH:$BUILD_PATH/lib:$BUILD_PATH:$REPO_PATH"
 } >> "$HOME/.bashrc"
 
@@ -99,7 +99,7 @@ Installation Summary:
 Python Version: $PYTHON_VERSION
 Python Command: $PYTHON_CMD
 Repository: $REPO_PATH
-Virtual Environment: $VENV_PATH
+Virtual Environment: $REPO_PATH/.venv
 Build Directory: $BUILD_PATH
 Python Path: ${PYTHONPATH}
 
